@@ -65,12 +65,13 @@ class DataProcessUtil:
                     nums=line.split('\t')
                     length=int(nums[1])
                     idStr=nums[0].split('_')[1]
-                    if(int(idStr) not in self.lv  and idStr in self.filter):
+                    if(int(idStr) not in self.lv  ):
                         self.contigPreBps[idStr]={}
                         self.contigNextBps[idStr]={}
                         if length>=length_threshold:
                             #print(idStr)
-                            self.contigs[idStr]=Contig(idStr,length)
+                            if(idStr.replace(" ","") in self.filter):
+                                self.contigs[idStr]=Contig(idStr,length)
                             #print(self.contigs)
 
                         else:
@@ -464,7 +465,6 @@ class DataProcessUtil:
 
 
     def writeFastA(self,outputSpace):
-
         tinyBreakCnt = 0
         with open(outputSpace + "/fastA.txt", "w") as file:
             duanId=1
@@ -522,7 +522,8 @@ class DataProcessUtil:
                         index, isConnected = self.showTinySeries(contigX, None, index, file, 1)
                         isBreak = True
                         break
-                    elif contigX.pre == None and contigX.next != contigPre:
+                    else:
+                        #contigX.pre == None and contigX.next != contigPre:
                         isBreak = True
                         break
                 if (isBreak == False and isConnected == False):
@@ -916,7 +917,6 @@ class DataProcessUtil:
 
                                 return
                 isN=True
-
                 for line in lines:#->->
                     nums=line.split('\t')
                     bps = int(nums[3])
@@ -941,6 +941,7 @@ class DataProcessUtil:
                             path.length+=tinyLength
 
                             self.extendTail(nums[0], coincidenceThreshold,bigContig,lists,nLists,path)
+
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
@@ -965,6 +966,7 @@ class DataProcessUtil:
                             path.length += tinyLength
 
                             self.extendHead(nums[0], coincidenceThreshold, bigContig, lists,nLists, path)
+
                             path.list.pop()
                             path.directions.pop()
                             path.length-=tinyLength

@@ -19,7 +19,7 @@ def print_hi(name):
     print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
 def processArgs():
     parser = argparse.ArgumentParser(description='SeriesAnalysis_1.0')
-    parser.add_argument('--coincidenceThreshold', type=float, default=97, help='序列有效重合比例阈值')
+    parser.add_argument('--coincidenceThreshold', type=float, default=99, help='序列有效重合比例阈值')
     parser.add_argument('--lengthThreshold', type=int,  default=5000,help='序列长度阈值')
     parser.add_argument('--workingSpace',type=str,default='/Users/yangweiyi/Desktop/输入文件',help='工作路径')
     parser.add_argument('--outputSpace',type=str,default='.',help='输出路径')

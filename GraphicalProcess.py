@@ -153,6 +153,7 @@ class GraphicalProcessUtil:
 
                 contigPre = contigHead
                 while contigX != contigHead and contigX!=None:
+                    #print(contigX.i)
                     if contigX.pre != None and contigX.pre == contigPre:
                         if (isConnected == False):
                             file.write('N')
@@ -192,10 +193,13 @@ class GraphicalProcessUtil:
                         file.write('|')
                         print('|',end='')
                         break
-                    elif contigX.pre == None and contigX.next != contigPre:
+                    #elif contigX.pre == None and contigX.next != contigPre:
+
+                    else:
                         file.write('|')
-                        print("|",end='')
+                        print("|", end='')
                         break
+
                 if (isConnected == False):
                     file.write('N')
                     print('N', end='')
@@ -357,7 +361,8 @@ class GraphicalProcessUtil:
                     currentX = currentX + arrowLength + 10
                     self.drawTriangle(dwg, currentX, currentY)
                     break
-                elif contigX.pre == None and contigX.next != contigPre:
+                #elif contigX.pre == None and contigX.next != contigPre:
+                else:
                     break
                 cnt = cnt + 1
             currentY+=100
