@@ -17,6 +17,7 @@ class DataProcessUtil:
         self.minContigLength = sys.maxsize
         self.contigPreBps = {}
         self.contigNextBps = {}
+        self.seriesLength={}
     def readPlasmids(self):
         if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
             with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
@@ -464,29 +465,32 @@ class DataProcessUtil:
         return rs
 
 
-    def writeFastA(self,outputSpace):
+    def writeFastA(self,outputSpace,isInit):
         tinyBreakCnt = 0
         with open(outputSpace + "/fastA.txt", "w") as file:
             duanId=1
             for headId in self.headContigs:
-                file.write('>'+str(duanId)+'\n')
+                if(isInit==False):
+                    file.write('>'+str(duanId)+'_sequence_length_'+str(self.seriesLength[duanId])+'bp'+'\n')
+                else:
+                    self.seriesLength[duanId]=0
                 file.flush()
-                duanId+=1
+
                 index = 0
                 contigHead = self.contigs[headId]
                 contigX = None
                 if self.headContigs[headId] == 0:
                     #print('--' + contigHead.i + '-->', end='|')
                     contigPre = contigHead.tinyPre
-                    index = self.writeSeries(file, contigPre, contigHead, 0, index)
+                    index = self.writeSeries(file, contigPre, contigHead, 0, index,duanId)
                     contigX = contigHead.next
-                    index, isConnected = self.showTinySeries(contigHead, contigX, index, file, 0)
+                    index, isConnected = self.showTinySeries(contigHead, contigX, index, file, 0,duanId)
                 if self.headContigs[headId] == 1:
                     #print('<--' + contigHead.i + '--', end='|')
                     contigPre = contigHead.tinyNext
-                    index = self.writeSeries(file, contigPre, contigHead, 1, index)
+                    index = self.writeSeries(file, contigPre, contigHead, 1, index,duanId)
                     contigX = contigHead.pre
-                    index, isConnected = self.showTinySeries(contigHead, contigX, index, file, 1)
+                    index, isConnected = self.showTinySeries(contigHead, contigX, index, file, 1,duanId)
                 contigPre = contigHead
                 isBreak = False  # bigContig break
                 while contigX != contigHead and contigX!=None:
@@ -494,32 +498,32 @@ class DataProcessUtil:
                         if (isConnected == False):
                             index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
                             tinyBreakCnt += 1
-                            index = self.showleftTinySeries(contigX, index, file, 0)
-                        index = self.writeSeries(file, contigX.tinyPre, contigX, 0, index)
+                            index = self.showleftTinySeries(contigX, index, file, 0,duanId)
+                        index = self.writeSeries(file, contigX.tinyPre, contigX, 0, index,duanId)
                         contigPre = contigX
                         if contigX.next == None:
-                            index, isConnected = self.showTinySeries(contigPre, None, index, file, 0)
+                            index, isConnected = self.showTinySeries(contigPre, None, index, file, 0,duanId)
                             isBreak = True
                             break
                         contigX = contigX.next
-                        index, isConnected = self.showTinySeries(contigPre, contigX, index, file, 0)
+                        index, isConnected = self.showTinySeries(contigPre, contigX, index, file, 0,duanId)
                     elif contigX.pre != None and contigX.next == contigPre:
                         if (isConnected == False):
                             index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
                             tinyBreakCnt += 1
-                            index = self.showleftTinySeries(contigX, index, file, 1)
+                            index = self.showleftTinySeries(contigX, index, file, 1,duanId)
 
-                        index = self.writeSeries(file, contigX.tinyNext, contigX, 1, index)
+                        index = self.writeSeries(file, contigX.tinyNext, contigX, 1, index,duanId)
                         contigPre = contigX
                         contigX = contigX.pre
-                        index, isConnected = self.showTinySeries(contigPre, contigX, index, file, 1)
+                        index, isConnected = self.showTinySeries(contigPre, contigX, index, file, 1,duanId)
                     elif contigX.pre == None and contigX.next == contigPre:
                         if (isConnected == False):
                             index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
                             tinyBreakCnt += 1
-                            index = self.showleftTinySeries(contigX, index, file, 1)
-                        index = self.writeSeries(file, contigX.tinyNext, contigX, 1, index)
-                        index, isConnected = self.showTinySeries(contigX, None, index, file, 1)
+                            index = self.showleftTinySeries(contigX, index, file, 1,duanId)
+                        index = self.writeSeries(file, contigX.tinyNext, contigX, 1, index,duanId)
+                        index, isConnected = self.showTinySeries(contigX, None, index, file, 1,duanId)
                         isBreak = True
                         break
                     else:
@@ -530,8 +534,9 @@ class DataProcessUtil:
                     index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
                     tinyBreakCnt += 1
                     if(contigX!=None):
-                        index = self.showleftTinySeries(contigX, index, file, 0)
+                        index = self.showleftTinySeries(contigX, index, file, 0,duanId)
                 file.write('\n')
+                duanId += 1
 
             file.close()
         print('已生成序列文件：' + outputSpace + '/fastA.txt')
@@ -586,7 +591,7 @@ class DataProcessUtil:
         # file.close()
         # print('已生成序列文件：' + outputSpace + '/fastA.txt')
         # return tinyBreakCnt
-    def showTinySeries(self,contigHead,contigNext,index,file,direction):
+    def showTinySeries(self,contigHead,contigNext,index,file,direction,duanId):
         indexX=index
         if direction == 0:
             contigX = contigHead.tinyNext
@@ -597,18 +602,18 @@ class DataProcessUtil:
         while contigX!=None :
             #hasTiny=True
             if contigPre in contigX.tiny_bigPre or contigX.tinyPre == contigPre:
-                indexX=self.writeSeries(file, contigPre,contigX, 0,indexX)
+                indexX=self.writeSeries(file, contigPre,contigX, 0,indexX,duanId)
                 contigPre = contigX
                 contigX = contigX.tinyNext
             elif contigPre in contigX.tiny_bigNext or contigX.tinyNext == contigPre:
-                indexX=self.writeSeries(file, contigPre,contigX, 1,indexX)
+                indexX=self.writeSeries(file, contigPre,contigX, 1,indexX,duanId)
                 contigPre = contigX
                 contigX = contigX.tinyPre
         isConnected=False
         if(contigNext in contigPre.tiny_bigNext or contigNext in contigPre.tiny_bigPre):
             isConnected=True
         return indexX,isConnected
-    def showleftTinySeries(self,contigRight,index1,file,rightContigDirection):
+    def showleftTinySeries(self,contigRight,index1,file,rightContigDirection,duanId):
         temp = ''
         indexx=index1
         if rightContigDirection == 0:
@@ -627,11 +632,13 @@ class DataProcessUtil:
                 temp = self.generateLeftSeries(file, contigPre.i,contigX, 0, temp)
                 contigPre = contigX
                 contigX = contigX.tinyPre
+        self.seriesLength[duanId] = self.seriesLength[duanId] + len(temp)
         if len(temp)<60-indexx:
             file.write(temp[0:])
             file.flush()
             return len(temp)+indexx
         index=0
+
         file.write(temp[0:60-indexx]+'\n')
         index=index+60-indexx
         indexy=0
@@ -694,7 +701,7 @@ class DataProcessUtil:
         else:
             temp = temp[:-1*self.contigNextBps[contig.i][lastId]]
         return temp+str
-    def writeSeries(self,file,lastContigId,contig,direction,indexx):
+    def writeSeries(self,file,lastContigId,contig,direction,indexx,duanId):
         temp = ''
         if direction == 1:
             for char in contig.series:
@@ -723,18 +730,20 @@ class DataProcessUtil:
             if (lastContigId != None):
                 if lastContigId.i in self.contigPreBps[contig.i]:
                     temp=temp[self.contigPreBps[contig.i][lastContigId.i]:]
-
-
+        self.seriesLength[duanId] = self.seriesLength[duanId] + len(temp)
         if len(temp)<60-indexx:
             file.write(temp[0:])
             file.flush()
+
             return len(temp)+indexx
         index=0
         file.write(temp[0:60-indexx]+'\n')
+
         index=index+60-indexx
         indexy=0
         while index <= len(temp) - 60:
             file.write(temp[index:index + 60] + '\n')
+
             index = index + 60
         if index < len(temp):
             file.write(temp[index:] )

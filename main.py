@@ -39,7 +39,8 @@ def processArgs():
         b.showCommandLineGraphics(a.contigs)
         b.showCommandLineGraphics_Extend(a.contigs, args.outputSpace)
         b.generateSvg(a.contigs, args.outputSpace)
-        print('段数:' + str(a.writeFastA(args.outputSpace)))
+        a.writeFastA(args.outputSpace,True)
+        print('段数:' + str(a.writeFastA(args.outputSpace,False)))
         print('延伸后断裂位点总数量:', str(a.encodeFastA(args.outputSpace)))
     else:
         for root, dirs, files in os.walk(args.workingSpace):
@@ -58,7 +59,8 @@ def processArgs():
                 b.showCommandLineGraphics(a.contigs)
                 b.showCommandLineGraphics_Extend(a.contigs, space)
                 b.generateSvg(a.contigs, space)
-                print('段数:' + str(a.writeFastA(space)))
+                a.writeFastA(space, True)
+                print('段数:' + str(a.writeFastA(space, False)))
                 print('延伸后断裂位点总数量:', str(a.encodeFastA(space)))
             break
 
