@@ -7,9 +7,6 @@ import os
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 
-
-
-
     # def __init__(self):
     #     #super().__init__(6)  # 显式调用父类的构造函数
     #     print("Child class constructor called")

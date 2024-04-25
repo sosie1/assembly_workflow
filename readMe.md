@@ -40,5 +40,9 @@ bugfix:
 Sample_JZ23090075-23HH460DEC-lib 大样本允许重复使用的话 就是两个环
 
 
+plasmids 去除了啊
+
+
+
 
 

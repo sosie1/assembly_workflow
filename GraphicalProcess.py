@@ -314,7 +314,8 @@ class GraphicalProcessUtil:
         dwg = svgwrite.Drawing(outputSpace+'/test1.svg', profile='tiny')
         currentY = 50
         for headId in self.dataProcessUtil.headContigs:
-            currentX = 10
+            currentX = 22
+            dwg.add(dwg.circle(center=(10,currentY),r=10,fill='black'))
             contigHead = contigs[headId]
             contigX = None
             arrowLength = self.generateArrowLength(contigHead.length)

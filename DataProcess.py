@@ -18,6 +18,8 @@ class DataProcessUtil:
         self.contigPreBps = {}
         self.contigNextBps = {}
         self.seriesLength={}
+
+        self.plasmids_plasmids=[]
     def readPlasmids(self):
         if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
             with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
@@ -31,6 +33,21 @@ class DataProcessUtil:
                         print(nums[1])
                     else:
                         self.plasmids.append(int(line.split(' ')[0].replace('>','')))
+
+    def readPlasmids_plasmids(self):
+        if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
+            with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
+                # 按行读取文件内容
+                lines = file.readlines()
+                for line in lines:
+                    index = line.find('_')
+                    if index != -1:
+                        nums=line.split('_')
+                        self.plasmids_plasmids.append(int(nums[1]))
+                        print(nums[1])
+                    else:
+                        self.plasmids_plasmids.append(int(line.split(' ')[0].replace('>','')))
+
 
 
     def printSeries(self,id1,id2):
