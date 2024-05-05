@@ -19,7 +19,7 @@ class DataProcessUtil:
         self.contigNextBps = {}
         self.seriesLength={}
 
-        self.plasmids_plasmids=[]
+        #self.plasmids_plasmids=[]
     def readPlasmids(self):
         if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
             with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
@@ -34,19 +34,19 @@ class DataProcessUtil:
                     else:
                         self.plasmids.append(int(line.split(' ')[0].replace('>','')))
 
-    def readPlasmids_plasmids(self):
-        if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
-            with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
-                # 按行读取文件内容
-                lines = file.readlines()
-                for line in lines:
-                    index = line.find('_')
-                    if index != -1:
-                        nums=line.split('_')
-                        self.plasmids_plasmids.append(int(nums[1]))
-                        print(nums[1])
-                    else:
-                        self.plasmids_plasmids.append(int(line.split(' ')[0].replace('>','')))
+    # def readPlasmids_plasmids(self):
+    #     if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
+    #         with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
+    #             # 按行读取文件内容
+    #             lines = file.readlines()
+    #             for line in lines:
+    #                 index = line.find('_')
+    #                 if index != -1:
+    #                     nums=line.split('_')
+    #                     self.plasmids_plasmids.append(int(nums[1]))
+    #                     print(nums[1])
+    #                 else:
+    #                     self.plasmids_plasmids.append(int(line.split(' ')[0].replace('>','')))
 
 
 
@@ -71,6 +71,35 @@ class DataProcessUtil:
                 temp = temp + 'C'
         temp = ''.join(reversed(temp))
         return temp
+    def readDepthTable_Plasmid(self,length_threshold):
+        self.generateFilter()
+        if os.path.exists(self.path + '/output_with_depth_table.txt'):
+            with open(self.path + '/output_with_depth_table.txt', 'r') as file:
+                # 按行读取文件内容
+                lines = file.readlines()
+                lines.pop(0)
+                # 打印每一行的内容
+                for line in lines:
+                    nums = line.split('\t')
+                    length = int(nums[1])
+                    idStr = nums[0].split('_')[1]
+                    if (int(idStr) not in self.lv):
+                        self.contigPreBps[idStr] = {}
+                        self.contigNextBps[idStr] = {}
+                        if length >= length_threshold and int(idStr) in self.plasmids:
+                            # print(idStr)
+                            if (idStr.replace(" ", "") in self.filter):
+                                self.contigs[idStr] = Contig(idStr, length)
+                            # print(self.contigs)
+
+                        else:
+                            # if (int(idStr) in self.plasmids):
+                            #     continue
+                            self.tinyContigs[idStr] = Contig(idStr, length)
+                        if (length > self.maxContigLength):
+                            self.maxContigLength = length
+                        if (length < self.minContigLength):
+                            self.minContigLength = length
     def readDepthTable(self,length_threshold):
         self.generateFilter()
         if os.path.exists(self.path+'/output_with_depth_table.txt'):
@@ -184,7 +213,7 @@ class DataProcessUtil:
                 self.filter.add(directionPairNums[0])
                 self.filter.add(directionPairNums[1])
 
-    def readDirection(self):
+    def readDirection(self,isPlasmids):
         pairs={}
         pairsScore={}
         contigNextPairs={}
@@ -202,39 +231,40 @@ class DataProcessUtil:
                 directionPairNums = directionPair.split('_')
                 direction=nums[2].replace('\n','')
                 score=float(nums[1])
-                if(self.isContigDirectionConflict(pairs,directionPair,direction)):
-                    print('匹配对本身conflict')
-                    if(int(directionPairNums[0])>int(directionPairNums[1])):
-                        pair=directionPairNums[1]+'_'+directionPairNums[0]
-                        self.deletePairInformation(pairs, pairsScore, pair, contigNextPairs,
-                                                   contigPrePairs)
-                        pairs[directionPair] = direction
-                        pairsScore[directionPair] = score
-                        self.generateContigNextOrPrePairs(directionPair,contigNextPairs,contigPrePairs,direction)
-                else:
-                    CompetePaira,CompetePairb=self.isContigDirectionCompeteConflict(pairs, directionPair, contigNextPairs,contigPrePairs,direction)
-                    if(CompetePaira!=None or CompetePairb!=None):
-                        isAdd=True
-                        if(CompetePaira!=None and score<=pairsScore[CompetePaira]) :
-                            print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePaira)
-                            isAdd=False
-                        if (CompetePairb != None and score <= pairsScore[CompetePairb]):
-                            print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePairb)
-                            isAdd = False
-                        if (CompetePaira != None and score > pairsScore[CompetePaira] and isAdd==True):
-                            self.deletePairInformation(pairs, pairsScore, CompetePaira, contigNextPairs,
+                if(directionPairNums[0] in self.contigs and directionPairNums[1] in self.contigs):
+                    if(self.isContigDirectionConflict(pairs,directionPair,direction)):
+                        print('匹配对本身conflict')
+                        if(int(directionPairNums[0])>int(directionPairNums[1])):
+                            pair=directionPairNums[1]+'_'+directionPairNums[0]
+                            self.deletePairInformation(pairs, pairsScore, pair, contigNextPairs,
                                                        contigPrePairs)
-                        if (CompetePairb != None and score > pairsScore[CompetePairb] and isAdd==True):
-                            self.deletePairInformation(pairs, pairsScore, CompetePairb, contigNextPairs,
-                                                       contigPrePairs)
-                        if(isAdd==True):
+                            pairs[directionPair] = direction
+                            pairsScore[directionPair] = score
+                            self.generateContigNextOrPrePairs(directionPair,contigNextPairs,contigPrePairs,direction)
+                    else:
+                        CompetePaira,CompetePairb=self.isContigDirectionCompeteConflict(pairs, directionPair, contigNextPairs,contigPrePairs,direction)
+                        if(CompetePaira!=None or CompetePairb!=None):
+                            isAdd=True
+                            if(CompetePaira!=None and score<=pairsScore[CompetePaira]) :
+                                print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePaira)
+                                isAdd=False
+                            if (CompetePairb != None and score <= pairsScore[CompetePairb]):
+                                print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePairb)
+                                isAdd = False
+                            if (CompetePaira != None and score > pairsScore[CompetePaira] and isAdd==True):
+                                self.deletePairInformation(pairs, pairsScore, CompetePaira, contigNextPairs,
+                                                           contigPrePairs)
+                            if (CompetePairb != None and score > pairsScore[CompetePairb] and isAdd==True):
+                                self.deletePairInformation(pairs, pairsScore, CompetePairb, contigNextPairs,
+                                                           contigPrePairs)
+                            if(isAdd==True):
+                                pairs[directionPair] = direction
+                                pairsScore[directionPair] = score
+                                self.generateContigNextOrPrePairs(directionPair, contigNextPairs, contigPrePairs, direction)
+                        else:
                             pairs[directionPair] = direction
                             pairsScore[directionPair] = score
                             self.generateContigNextOrPrePairs(directionPair, contigNextPairs, contigPrePairs, direction)
-                    else:
-                        pairs[directionPair] = direction
-                        pairsScore[directionPair] = score
-                        self.generateContigNextOrPrePairs(directionPair, contigNextPairs, contigPrePairs, direction)
         for key1, value in pairs.items():
             key=key1.split('_')
             print(key)
@@ -257,6 +287,8 @@ class DataProcessUtil:
                     # self.contigs[directionPair[1]].direction = 1
                     self.contigs[key[0]].pre = self.contigs[key[1]]
                     self.contigs[key[1]].next = self.contigs[key[0]]
+        if(isPlasmids==True):
+            self.plasmids.clear()
         self.deletePlasmidsContigs()
     def isContigConnected(self,contig,contig1):
         if(contig1==None):

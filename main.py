@@ -29,7 +29,7 @@ def processArgs():
         a = DataProcessUtil(args.workingSpace)
         a.readPlasmids()
         a.readDepthTable(args.lengthThreshold)
-        a.readDirection()
+        a.readDirection(False)
         a.readGenome()
         a.extendSeries(args.coincidenceThreshold)
         b = GraphicalProcess.GraphicalProcessUtil(a)
@@ -39,6 +39,26 @@ def processArgs():
         a.writeFastA(args.outputSpace,True)
         print('段数:' + str(a.writeFastA(args.outputSpace,False)))
         print('延伸后断裂位点总数量:', str(a.encodeFastA(args.outputSpace)))
+
+        folder = os.path.exists(args.outputSpace + '/plasmid')
+        if not folder:  # 判断是否存在文件夹如果不存在则创建为文件夹
+            os.makedirs(args.outputSpace + '/plasmid')  # makedirs 创建文件时如果路径不存在会创建这个路径
+
+        a1 = DataProcessUtil(args.workingSpace)
+        a1.readPlasmids()
+        a1.readDepthTable_Plasmid(args.lengthThreshold)
+        a1.readDirection(True)
+        a1.readGenome()
+        a1.extendSeries(args.coincidenceThreshold)
+        b1 = GraphicalProcess.GraphicalProcessUtil(a1)
+        b1.showCommandLineGraphics(a1.contigs)
+        b1.showCommandLineGraphics_Extend(a1.contigs, args.outputSpace  + '/plasmid')
+        b1.generateSvg(a1.contigs, args.outputSpace  + '/plasmid')
+        a1.writeFastA(args.outputSpace  + '/plasmid', True)
+        print('plasmid:段数:' + str(a1.writeFastA(args.outputSpace  + '/plasmid', False)))
+        print('plasmid:延伸后断裂位点总数量:', str(a1.encodeFastA(args.outputSpace  + '/plasmid')))
+
+
     else:
         for root, dirs, files in os.walk(args.workingSpace):
             # for name in files:
@@ -49,7 +69,7 @@ def processArgs():
                 a = DataProcessUtil(space)
                 a.readPlasmids()
                 a.readDepthTable(args.lengthThreshold)
-                a.readDirection()
+                a.readDirection(False)
                 a.readGenome()
                 a.extendSeries(args.coincidenceThreshold)
                 b = GraphicalProcess.GraphicalProcessUtil(a)
@@ -59,6 +79,25 @@ def processArgs():
                 a.writeFastA(space, True)
                 print('段数:' + str(a.writeFastA(space, False)))
                 print('延伸后断裂位点总数量:', str(a.encodeFastA(space)))
+
+                folder = os.path.exists(space + '/plasmid')
+
+                if not folder:  # 判断是否存在文件夹如果不存在则创建为文件夹
+                    os.makedirs(space + '/plasmid')  # makedirs 创建文件时如果路径不存在会创建这个路径
+
+                a1 = DataProcessUtil(space)
+                a1.readPlasmids()
+                a1.readDepthTable_Plasmid(args.lengthThreshold)
+                a1.readDirection(True)
+                a1.readGenome()
+                a1.extendSeries(args.coincidenceThreshold)
+                b1 = GraphicalProcess.GraphicalProcessUtil(a1)
+                b1.showCommandLineGraphics(a1.contigs)
+                b1.showCommandLineGraphics_Extend(a1.contigs, space + '/plasmid')
+                b1.generateSvg(a1.contigs, space + '/plasmid')
+                a1.writeFastA(space + '/plasmid', True)
+                print('plasmid:段数:' + str(a1.writeFastA(space + '/plasmid', False)))
+                print('plasmid:延伸后断裂位点总数量:', str(a1.encodeFastA(space + '/plasmid')))
             break
 
 
