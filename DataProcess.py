@@ -320,6 +320,7 @@ class DataProcessUtil:
                 contigHead.using = True
                 contigPre = contigHead
                 while contigX != None and contigX != contigHead:
+                    print("de"+contigX.i)
                     if contigX.pre != None and contigX.pre == contigPre:
                         contigX.using = True
                         if (int(contigX.i) in self.plasmids):
@@ -332,7 +333,7 @@ class DataProcessUtil:
                             contigPre = contigX
                             contigX = contigX.next
                             lastDirection = 0
-                    elif contigX.pre != None and contigX.next == contigPre:
+                    elif contigX.next != None and contigX.next == contigPre:
                         contigX.using = True
                         if (int(contigX.i) in self.plasmids):
 
@@ -349,6 +350,10 @@ class DataProcessUtil:
                         contigX.using = True
                         break
                     else:
+                        if (lastDirection == 0):
+                            contigPre.next=None
+                        else:
+                            contigPre.pre=None
                         break
         for c in self.contigs:
             if self.contigs[c].using==False:
@@ -403,6 +408,7 @@ class DataProcessUtil:
         # lastDirection=0
 
     def deleteContig(self,contigX,lastDirection,contigPre,currentDirection):
+        print("delete"+contigX.i)
         if(currentDirection==0):
             contigLater=contigX.next
         else:
@@ -871,7 +877,7 @@ class DataProcessUtil:
 
 
     #深度优先遍历寻找最长序列
-    def extendSeries(self,coincidenceThreshold):
+    def extendSeries(self,coincidenceThreshold,coincidenceThreshold_1):
         for contigId in self.contigs:
             contig=self.contigs[contigId]
             nextContig=contig.next
@@ -880,7 +886,7 @@ class DataProcessUtil:
                 tinyList = []
                 nList=[]
                 path=Path()
-                self.extendTail(contigId,coincidenceThreshold,nextContig,tinyList,nList,path)
+                self.extendTail(contigId,coincidenceThreshold,nextContig,tinyList,nList,path,coincidenceThreshold_1)
                 # if (contigId == '38'):
                 #     for a in tinyList:
                 #         print(a.list)
@@ -907,7 +913,7 @@ class DataProcessUtil:
                 path = Path()
 
 
-                self.extendHead(contigId,coincidenceThreshold,preContig,tinyList,nList,path)
+                self.extendHead(contigId,coincidenceThreshold,preContig,tinyList,nList,path,coincidenceThreshold_1)
                 if (contigId == '12'):
                     for a in tinyList:
                         print(a.list)
@@ -927,7 +933,7 @@ class DataProcessUtil:
                 if (contig.tinyPre != None):
                     print('is' + contig.tinyPre.i)
 
-    def extendTail(self,id,coincidenceThreshold,bigContig,lists,nLists,path):
+    def extendTail(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1):
         #print(path.list)
         #print('-'+id+'-')
         contig=None
@@ -952,7 +958,7 @@ class DataProcessUtil:
                         coincidenceEquality=float(nums[2])
                         if nums[0] == bigContig.i \
                         and bps>=32\
-                        and float(nums[2])>coincidenceThreshold and nums[0]!=id:
+                        and float(nums[2])>coincidenceThreshold_1 and nums[0]!=id:
                             tinyLength = self.contigs[nums[0]].length
                             if (nums[6] in ['1','2','3','4','5'] and nums[9] in [str(length),str(length-1),str(length-2) \
                                     ,str(length-3),str(length-4)]):
@@ -998,7 +1004,7 @@ class DataProcessUtil:
                             path.directions.append(1)
                             path.length+=tinyLength
 
-                            self.extendTail(nums[0], coincidenceThreshold,bigContig,lists,nLists,path)
+                            self.extendTail(nums[0], coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1)
 
                             path.list.pop()
                             path.directions.pop()
@@ -1023,7 +1029,7 @@ class DataProcessUtil:
                             path.directions.append(0)
                             path.length += tinyLength
 
-                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists,nLists, path)
+                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists,nLists, path,coincidenceThreshold_1)
 
                             path.list.pop()
                             path.directions.pop()
@@ -1066,7 +1072,7 @@ class DataProcessUtil:
         #             #         print(a.i)
         #             if self.tinyContigs[maxId].tinyPre == None:
         #                 self.extendHead(maxId, coincidenceThreshold)
-    def extendHead(self,id,coincidenceThreshold,bigContig,lists,nLists,path):
+    def extendHead(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1):
         #print(path.list)
         contig=None
         isTiny=False
@@ -1084,13 +1090,16 @@ class DataProcessUtil:
             with open(self.path+'/blast_all_info/all_'+id+'.txt', 'r') as file:
                 lines = file.readlines()
                 if(bigContig!=None):
+                    if (bigContig.i == '52'):
+                        for key in self.contigs.keys():
+                            print(key)
                     for line in lines:
                         nums=line.split('\t')
                         bps = int(nums[3])
                         coincidenceEquality=float(nums[2])
                         if nums[0] == bigContig.i \
                         and bps>=32\
-                        and coincidenceEquality>coincidenceThreshold and nums[0]!=id:
+                        and coincidenceEquality>coincidenceThreshold_1 and nums[0]!=id:
                             tinyLength = self.contigs[nums[0]].length
                             if (nums[7] in [str(tinyLength),str(tinyLength-1),str(tinyLength-2) \
                                     ,str(tinyLength-3),str(tinyLength-4)] and nums[8] in ['1','2','3','4','5']) :
@@ -1133,7 +1142,7 @@ class DataProcessUtil:
                             path.directions.append(0)
                             path.length += tinyLength
 
-                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists, nLists, path)
+                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists, nLists, path,coincidenceThreshold_1)
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
@@ -1154,7 +1163,7 @@ class DataProcessUtil:
                             path.directions.append(1)
                             path.length += tinyLength
 
-                            self.extendTail(nums[0], coincidenceThreshold, bigContig, lists, nLists, path)
+                            self.extendTail(nums[0], coincidenceThreshold, bigContig, lists, nLists, path,coincidenceThreshold_1)
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
