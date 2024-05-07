@@ -366,7 +366,7 @@ class GraphicalProcessUtil:
                 else:
                     break
                 cnt = cnt + 1
-            currentY+=100
+            currentY+=50
         #dwg = svgwrite.Drawing('ca_green.svg', profile='tiny')
         #dwg.add(dwg.add(dwg.rect(insert=(0, 0), size=("100%", "100%"), rx=None, ry=None, fill='green')))
 

@@ -234,7 +234,10 @@ class DataProcessUtil:
                 if(directionPairNums[0] in self.contigs and directionPairNums[1] in self.contigs):
                     if(self.isContigDirectionConflict(pairs,directionPair,direction)):
                         print('匹配对本身conflict')
-                        if(int(directionPairNums[0])>int(directionPairNums[1])):
+                        if(directionPairNums[0] in contigNextPairs and directionPairNums[0] in contigPrePairs
+                        and directionPairNums[1] in contigNextPairs and directionPairNums[1] in contigPrePairs):
+                            print("优化匹配")
+                        elif(int(directionPairNums[0])>int(directionPairNums[1])):
                             pair=directionPairNums[1]+'_'+directionPairNums[0]
                             self.deletePairInformation(pairs, pairsScore, pair, contigNextPairs,
                                                        contigPrePairs)
