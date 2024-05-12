@@ -1,0 +1,3454 @@
+1、解压缩：
+gzip -d /bios-store5/lyt/fudan_test_4sample_20231019/HB013/input_R1.fastq.gz /bios-store5/lyt/fudan_test_4sample_20231019/HB013/input_R2.fastq.gz /bios-store5/lyt/fudan_test_4sample_20231019/HB013/input_I1.fastq.gz
+
+2、数据去重：//去重慢  合并后 序列相同 名称不同 随机去除10中9 最后再分成三个
+def unique_reads(path,i1,r1,r2):
+    I1_1=open(path+i1,"r").readlines()
+    R1_1=open(path+r1,"r").readlines()
+    R2_1=open(path+r2,"r").readlines()
+
+    output_integration = open(path + 'integration.fastq','w')
+    for i in range(len(R1_1)):
+        if i % 4 == 0:
+            index = R1_1[i]
+            output_integration.writelines(index)
+        elif i % 4 == 1:
+            line=R1_1[i][:-1]+R2_1[i][:-1]+I1_1[i]
+            output_integration.writelines(line)
+        elif i % 4 == 2:
+            signal = R1_1[i]
+            output_integration.writelines(signal)
+        else:
+            lines = R1_1[i][:-1]+R2_1[i][:-1]+I1_1[i]
+            output_integration.writelines(lines)
+    output_integration.close() 
+
+    output_integration = open(path + 'integration.fastq','r').readlines()
+
+    import pandas as pd 
+    unique=[]
+    for i in range(len(output_integration)):
+        if i % 4 == 1:
+            unique.append(output_integration[i])
+
+    index_list=[]
+    for i in range(len(output_integration)):
+        if i % 4 == 0:
+            index_list.append(output_integration[i])
+ 
+    score=[]
+    for i in range(len(output_integration)):
+        if i % 4 == 3:
+            score.append(output_integration[i])
+ 
+    unique_seq=pd.DataFrame(unique)  
+    unique_seq=unique_seq.drop_duplicates()
+
+    import numpy as np
+    unique_seq_new=np.array(unique_seq)
+    l=unique_seq.index
+
+    unique_fastq=open(path + "unique_seq.fastq","w")
+    for i in l:
+        unique_fastq.writelines(index_list[i])
+        unique_fastq.writelines(unique[i])
+        unique_fastq.writelines("+"+"\n")
+        unique_fastq.writelines(score[i])
+    unique_fastq.close()
+
+    unique_fastq=open(path + "unique_seq.fastq","r").readlines()
+
+    unique_fa_R1=open(path + "unique_R1.fastq","w")
+    for i in range(len(unique_fastq)):
+        if i % 4 == 0 :
+            unique_fa_R1.writelines(unique_fastq[i])
+        elif i % 4 == 1:
+            seq_R1 = unique_fastq[i][0:150]
+            unique_fa_R1.writelines(seq_R1+"\n")
+        elif i % 4 == 2:
+            unique_fa_R1.writelines(unique_fastq[i])
+        else:
+            score_R1 = unique_fastq[i][0:150]
+            unique_fa_R1.writelines(score_R1+"\n")
+    unique_fa_R1.close()
+        
+    unique_fa_R2=open(path + "unique_R2.fastq","w")
+    for i in range(len(unique_fastq)):
+        if i % 4 == 0 :
+            unique_fa_R2.writelines(unique_fastq[i])
+        elif i % 4 == 1:
+            seq_R2 = unique_fastq[i][150:300]
+            unique_fa_R2.writelines(seq_R2+"\n")
+        elif i % 4 == 2:
+            unique_fa_R2.writelines(unique_fastq[i])
+        else:
+            score_R2 = unique_fastq[i][150:300]
+            unique_fa_R2.writelines(score_R2+"\n")
+    unique_fa_R2.close()
+
+    unique_fa_I1=open(path + "unique_I1.fastq","w")
+    for i in range(len(unique_fastq)):
+        if i % 4 == 0 :
+            unique_fa_I1.writelines(unique_fastq[i])
+        elif i % 4 == 1:
+            seq_I1 = unique_fastq[i][300:318]
+            unique_fa_I1.writelines(seq_I1+"\n")
+        elif i % 4 == 2:
+            unique_fa_I1.writelines(unique_fastq[i])
+        else:
+            score_I1 = unique_fastq[i][300:318]
+            unique_fa_I1.writelines(score_I1+"\n")
+    unique_fa_I1.close()
+
+unique_reads("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/","HB013_1213_R2.fastq","HB013_1213_R1.fastq","HB013_1213_R3.fastq")
+
+3、数据过滤：
+import argparse
+class filter_data:
+    def __init__(self,out_path,file_r1,file_r2,file_i1,file_w):
+        self.out_path = out_path
+        self.file_r1  = file_r1
+        self.file_r2 = file_r2 
+        self.file_i1 = file_i1 
+        self.file_w = file_w
+        
+    #1、统计原始文件reads数目：
+    #2、统计barcode信息和index信息:
+    def summary_barcode(self,file_r1,file_w):
+        data = open(self.file_r1,"r").readlines()
+        print(len(data)//4)
+        file_write  = open(self.file_w,"w")
+        name_list=[]
+        for i in range(len(data)):
+            if data[i][0] == "@":
+                name_list.append(data[i+1][:-1])
+        from collections import Counter
+        number_dir = Counter(name_list)
+
+        number_sort = sorted(number_dir.items(),key = lambda x:x[1],reverse = True)
+        print('reads_with_barcode_all_Gs:'+str(number_sort[0][1]))
+        for i in range(len(number_sort)):
+            line = number_sort[i][0] + "\t" + str(number_sort[i][1]) + "\n"
+            file_write.writelines(line)
+        file_write.close()
+    
+        index = data[0].split()[1].split(":")[3][:-1]
+    
+        data = open(self.file_w,"r").readlines()
+        barcode_catagory_count = len(data)
+        unique_barcode = 0
+        more_than_three = 0
+        read_with_more_than_three = 0
+        all_reads = 0
+        for line in data:
+            name = line.split()[0]
+            count = int(line.split()[1])
+            all_reads += count
+            if count == 1:
+                unique_barcode += 1
+            elif count >= 3:
+                more_than_three += 1
+                read_with_more_than_three += count     
+        print("all_reads:"+str(all_reads))
+        print("unique_barcode:"+str(unique_barcode))
+        print("more_than_three:"+str(more_than_three))
+        print("read_with_more_than_three:"+str(read_with_more_than_three))
+        print("barcode_catagory_count:"+str(barcode_catagory_count))
+
+    #3、将通用的index1剔除，得到新的R1、R2和I1文件：
+    def re_get_reads(self,file_r1,file_r2,file_i1,out_path):
+        data_I1 = open(self.file_r1,"r").readlines()
+        data_R1 = open(self.file_r2,"r").readlines()
+        data_R2 = open(self.file_i1,"r").readlines()
+        I1 = open(self.out_path+"reget_I1.fastq","w")
+        R1 = open(self.out_path+"reget_R1.fastq","w")
+        R2 = open(self.out_path+"reget_R2.fastq","w")
+        for i in range(len(data_I1)):
+            if i % 4 == 0:
+                name = data_I1[i].split()[0]
+                I1.writelines(name+"\n"+ data_I1[i+1]+data_I1[i+2]+data_I1[i+3])
+                R1.writelines(name+"\n"+ data_R1[i+1]+data_R1[i+2]+data_R1[i+3])
+                R2.writelines(name+"\n"+ data_R2[i+1]+data_R2[i+2]+data_R2[i+3])
+        I1.close()
+        R1.close()
+        R2.close()
+
+    #4、将错误的barcode进行剔除：
+    def remove_wrong_barcode(self,out_path):
+        H = ['A','C','T']
+        Y = ['C','T']
+        R = ['A','G']
+        I1 = open(self.out_path+"reget_I1.fastq","r").readlines()
+        R1 = open(self.out_path+"reget_R1.fastq","r").readlines()
+        R2 = open(self.out_path+"reget_R2.fastq","r").readlines()
+        correct_index = []
+        i1 = open(self.out_path+"correct_I1.fastq","w")
+        r1 = open(self.out_path+"correct_R1.fastq","w")
+        r2 = open(self.out_path+"correct_R2.fastq","w")
+        one_mismatch_barcode_num = 0
+        for i in range(len(I1)):
+            if i % 4 == 1:
+                position_1 = I1[i][2]
+                position_2 = I1[i][5]
+                position_3 = I1[i][6]
+                position_4 = I1[i][11]
+                position_5 = I1[i][12]
+                position_6 = I1[i][15]
+                if position_1 in H and position_6 in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])
+                elif position_1 not in H and position_6 in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])                   
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 not in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])               
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 not in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])               
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 in Y and position_3 not in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])               
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 in Y and position_3 in R and position_4 not in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])                
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 not in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])
+                    one_mismatch_barcode_num += 1
+        i1.close()
+        r1.close()
+        r2.close()
+        print(one_mismatch_barcode_num)
+
+    def cut_adapter_and_fastp(self,out_path):
+        import subprocess
+        import os 
+        subprocess.run(['sh','/bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/cutadapt_fastp.sh',self.out_path]) 
+
+    def get_final_corrected_reads(self,out_path):
+        original_i1 = open(self.out_path+'reget_I1.fastq',"r").readlines()
+        cut_r1_in = open(self.out_path+"fastp_r1.fastq","r").readlines()
+        cut_r2_in = open(self.out_path+"fastp_r2.fastq","r").readlines()
+        i1_in = open(self.out_path+'correct_i1.fastq',"r").readlines()
+        print("error_barcode_num:"+str(len(original_i1)//4-len(i1_in)//4))
+        name_list_before = []
+        for line in i1_in:
+            if line[0] == "@":
+                name_list_before.append(line)
+        name_list_after = []
+        for line in cut_r1_in:
+            if line[0] == "@":
+                name_list_after.append(line)
+        cut_i1_out = open(self.out_path+"fastp_i1.fastq","w")        
+        
+        name_intersection_list = list(set(name_list_before) & set(name_list_after))
+        name_intersection_dir = {}
+        for i, k in enumerate(name_intersection_list):
+            name_intersection_dir[k] = i    
+    
+        for i in range(len(i1_in)):
+            if i % 4 ==0:
+                if i1_in[i] in name_intersection_dir:
+                    cut_i1_out.writelines(i1_in[i]+i1_in[i+1]+i1_in[i+2]+i1_in[i+3])    
+        cut_i1_out.close()
+    
+        print("final_reads_num:" + str(len(cut_r1_in)//4))
+    
+        data = open(out_I1,"r").readlines()
+        name_list = []
+        for i in range(len(data)):
+            if i % 4 ==1:
+                name_list.append(data[i])
+        set_name = set(name_list)
+        print("final_correct_barcode_number:"+str(len(set_name)))              
+
+    def add_index(self,out_path):
+        R1=open(self.out_path+"fastp_r1.fastq","r").readlines()
+        R2=open(self.out_path+"fastp_r2.fastq","r").readlines()
+        i1=open(self.out_path+"fastp_i1.fastq","r").readlines()
+
+        for i in range(len(R1)):
+            if i % 4 == 1:
+                R1[i-1]=R1[i-1][:-1]+":"+"index:"+i1[i]
+                R2[i-1]=R2[i-1][:-1]+":"+"index:"+i1[i]
+
+        R1_with_index=open(self.out_path+"R1_with_barcode_new.fastq","w")
+        for line in R1:
+            R1_with_index.writelines(line)
+        R1_with_index.close()
+
+        R2_with_index=open(self.out_path+"R2_with_barcode_new.fastq","w")
+        for line in R2:
+            R2_with_index.writelines(line)
+        R2_with_index.close()
+
+def main(out_path,file_r1,file_r2,file_i1,file_w):
+    my_class = filter_data(out_path,file_r1,file_r2,file_i1,file_w)
+    my_class.summary_barcode(file_r1,file_w)
+    my_class.re_get_reads(file_r1,file_r2,file_i1,out_path)
+    my_class.remove_wrong_barcode(out_path)
+    my_class.cut_adapter_and_fastp(out_path)
+    my_class.get_final_corrected_reads(out_path)
+    my_class.add_index(out_path)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--out_path',type=str)
+parser.add_argument('--file_r1', type=str)
+parser.add_argument('--file_r2', type=str)
+parser.add_argument('--file_i1', type=str)
+parser.add_argument('--file_w',type=str)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.out_path,args.file_r1,args.file_r2,args.file_i1,args.file_w)
+
+{
+#原始数据和过滤后的数据进行质量评估
+（5）利用fastqc生成原始数据的质量检测报告：
+fastqc -o /output_path/ ./output_re_I1_T500.fastq.gz -t 10
+fastqc -o /output_path/ ./output_re_R1_T500.fastq.gz -t 10
+fastqc -o /output_path/ ./output_re_R2_T500.fastq.gz -t 10
+（8）利用fastqc生成过滤后的R1、R2和I1的质量报告：
+fastqc -o /output_path/ ./fastp_i1.fastq -t 10
+fastqc -o /output_path/ ./fastp_i1.fastq -t 10
+fastqc -o /output_path/ ./fastp_i1.fastq -t 10
+}
+
+3、spades.sh：
+cd /bios-store1/home/yutongli/SPAdes-3.14.0-Linux/bin/
+./spades.py -1 /bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/fastp_r1.fastq -2 /bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/fastp_r2.fastq -o /bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/spades_result_unique_new/
+ 
+4、整理spades得到初步组装的结果：
+def rename_assembly(path):
+    data = open(path + "spades_result_unique_new/scaffolds.fasta","r").readlines()
+    data_out = open(path + "spades_result_unique_new/assembly.fasta","w")
+    count = 1
+    for i in range(len(data)):
+        if data[i][0] == ">":
+            data_out.writelines(">"+str(count)+"\n")
+            count += 1
+        else:
+            data_out.writelines(data[i])
+    data_out.close()
+
+    import re, os
+    with open(path + "spades_result_unique_new/assembly.fasta") as f:
+        Dict = {}
+        for line in f:
+            line = line.strip()
+            if line[0] == ">":
+                key = line
+                Dict[key] = []
+            else:
+                Dict[key].append(line)
+            
+        with open(path + "spades_result_unique_new/output_with_depth_table.txt", 'w') as table:
+            with open(path + "spades_result_unique_new/outfile_genome.txt", 'w') as genome:
+                table.write("\tBase(bp)\tGC%\tStructure\n")
+                for key, value in Dict.items():
+                    if key[0] == ">":
+                        name = key[1:]
+                        seq = ''.join(value)   
+                        genome.write("{}\n{}\n".format(key, seq))
+                        # write table
+                        length = len(seq)
+                        gc_percent = format((seq.count("G") + seq.count("C"))/length*100, '0.2f')
+                        #print("\033[32m{}\t{}\033[0m".format(key, length))
+                        table.write("contig_{}\t{}\t{}\tChromosome\n".format(name,length, gc_percent))
+                        
+    data = open(path + "spades_result_unique_new/scaffolds.fasta","r").readlines()
+    data_out = open(path+"spades_result_unique_new/coverage.txt","w")
+    for line in data:
+        if line[0] == ">":
+            data_out.writelines(line)
+    data_out.close()
+
+rename_assembly("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/")
+
+
+5、BWA比对并分别获取每个contig对应的比对信息，去除低质量的contigs：
+import argparse
+class bwa_and_separate:
+    def __init__(self,out_path,n,low,high):
+        self.out_path = out_path
+        self.n  = n
+        self.low = low 
+        self.high = high 
+ 
+    def bwa_result(self,out_path):
+        import subprocess
+        import os 
+        subprocess.run(['sh','/bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/bwa_and_separate.sh',self.out_path])
+
+    def separate_and_clear(self,out_path,n,low,high):
+        data_in = open(self.out_path +"spades_result_unique_new/coverage.txt","r").readlines()
+        data_out = open(self.out_path + "spades_result_unique_new/coverage_pair_info.txt","w")
+        for line in data_in:
+            name = line.split("_")[1]
+            cov = line.split("_")[5]
+            data_out.writelines(name+"\t"+cov)
+        data_out.close()
+
+        data = open(self.out_path + "spades_result_unique_new/full_final_unique_out.info.txt","r").readlines()
+        j = 1
+        while j < self.n:
+            data_out = open(self.out_path + "spades_result_unique_new/get_bam_info/final_out_"+str(j)+".info.txt","w")
+            for i in range(len(data)):
+                if int(data[i].split("\t")[2]) == j:
+                    data_out.writelines(data[i])
+            data_out.close()
+            j += 1
+
+        data = open(self.out_path + "coverage_pair_info.txt","r").readlines()
+        name_list = []
+        duplication_list = []
+        for i in range(len(data)):
+            name = data[i].split()[0]
+            cov = data[i].split()[1]
+            if float(cov) < float(self.low):
+                name_list.append(name)
+            elif float(cov) >= float(self.high):
+                duplication_list.append(name)
+
+        i = 1 
+        while i < self.n:
+            if str(i) in name_list:
+                bam_info = open(self.out_path + "spades_result_unique_new/get_bam_info/final_out_"+str(i)+".info.txt","w")
+                bam_info.writelines("")
+                bam_info.close()
+            i += 1  
+
+def main(out_path,n,low,high):
+    my_class = bwa_and_separate(out_path,n,low,high)
+    my_class.bwa_result(out_path)
+    my_class.separate_and_clear(out_path,n,low,high)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--out_path',type=str)
+parser.add_argument('--n', type=int)
+parser.add_argument('--low', type=int)
+parser.add_argument('--high', type=int)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.out_path,args.n,args.low,args.high)
+
+6、确定contigs之间的配对信息和方向信息：
+需要利用的两个shell脚本信息：
+[
+#create_fill.sh
+path=$1
+mkdir ${path}/bwa_original_barcode_name_\(file_1\) ${path}/front_and_back_barcode_\(file_2\) ${path}/bwa_dir_of_int_\(file_3\) ${path}/int_set_remove_few_\(file_3\) ${path}/compare_before_\(file_4\) ${path}/remove_occur_once_\(file_5\) ${path}/final_int_barcode\(file_6\) ${path}/final_dir_barcode\(file_7\) ${path}/compara_file_final_int_\(file_8\) ${path}/compara_file_final_dir_\(file_9\) ${path}/union_file_final_int_\(file_10\) ${path}/ff_list ${path}/bb_list ${path}/fb_and_bf_list
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before_\(file_4\)/new_info_${i}
+  mkdir ${path}/compara_file_final_int_\(file_8\)/new_info_${i}
+  mkdir ${path}/compara_file_final_dir_\(file_9\)/new_info_${i}
+  mkdir ${path}/union_file_final_int_\(file_10\)/new_info_${i}
+done
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir ./compara_to_contig/
+  mv ${path}/new_info_${i}/int_set_of_contig_* ${path}/new_info_${i}/compara_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compara_to_contig/int_set_of_contig_${i}compare_to_contig_${i}.txt ${path}/new_info_${i}/
+Done
+]
+（1）得到整体contigs之间的相似度度量矩阵
+import argparse
+class Barcode_info:
+    #the first python demo
+    def __init__(self,path_bam,file_path,start,n,num,c,file_compare):
+        self.path_bam  = path_bam
+        self.file_path = file_path
+        self.start = start
+        self.n = n
+        self.num = num
+        self.c = c
+        self.file_compare = file_compare
+        
+    def create_file(self,file_path,n):
+        import subprocess
+        import os 
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_python_demo/create_file.sh',self.file_path,str(self.n-1)]) 
+    
+    def get_front_barcode_info(self,path_bam,file_path,start,n,num):
+        path = self.path_bam+"get_bam_info/"
+        path_out = self.file_path+"bwa_original_barcode_name_(file_1)/"
+
+        length_data = open(self.file_path+"output_with_depth_table.txt","r").readlines()
+        length_list = {}
+        for i in range(1,len(length_data)):
+            name = length_data[i].split("\t")[0].split("_")[1]
+            length = length_data[i].split("\t")[1]
+            length_list[name] = int(length)
+
+        for i in range(self.start,self.n):
+            if length_list[str(i)] >= 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "front_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) <=self.num:
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+
+            elif length_list[str(i)] < 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "front_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) <= (length_list[str(i)])//2:
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+                
+    
+    def get_back_barcode_info(self,path_bam,file_path,start,num):
+        path = self.path_bam+"get_bam_info/"
+        path_out = self.file_path+"bwa_original_barcode_name_(file_1)/"
+        #import pandas as pd
+        length_data = open(self.file_path+"output_with_depth_table.txt","r").readlines()
+        length_list = {}
+        for i in range(1,len(length_data)):
+            name = length_data[i].split("\t")[0].split("_")[1]
+            length = length_data[i].split("\t")[1]
+            length_list[name] = int(length)
+        print(length_list)
+        
+        for i in range(self.start,self.n):
+            if length_list[str(i)] >= 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "back_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) >= int(int(length_list[str(i)])-self.num):
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+                file_write.close()
+            
+            elif length_list[str(i)] < 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "back_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) >= (length_list[str(i)])//2:
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+                file_write.close()
+                
+            
+    def design_file_intbar(self,file_path,n,start,num):
+        path = self.file_path + "bwa_original_barcode_name_(file_1)/"
+        path_out = self.file_path +"front_and_back_barcode_(file_2)/"
+        
+        length_data = open(self.file_path+"output_with_depth_table.txt","r").readlines()
+        length_list = {}
+        for i in range(1,len(length_data)):
+            name = length_data[i].split("\t")[0].split("_")[1]
+            length = length_data[i].split("\t")[1]
+            length_list[name] = int(length)
+        
+        for i in range(self.start,self.n):
+            full_path = path_out + "final_barcode_int_name_of_contig" + str(i) + '.txt'
+            file = open(full_path, 'w')
+            full_path_read = path + "front_barcode_info_of_contig" + str(i) + '.txt'
+            file_read_1 = open(full_path_read,"r").readlines()
+            full_path_read_1 = path + "back_barcode_info_of_contig" + str(i) + '.txt'
+            file_read_2 = open(full_path_read_1,"r").readlines()
+            for line in file_read_1:
+                file.writelines(str(line[:-1])+"\n")
+            for line in file_read_2:
+                file.writelines(str(line[:-1])+"\n")
+            file.close()
+
+
+    def barcode_bwa_set(self,file_path,n,start):
+        from collections import Counter
+        path = self.file_path+"front_and_back_barcode_(file_2)/"
+        path_out = self.file_path + "bwa_dir_of_int_(file_3)/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_barcode_int_name_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+        
+            full_path_write = path_out + "final_barcode_int_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            barcode_set = set(file)
+    
+            for line in barcode_set:
+                file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_number(self,file_path,n,start):
+        from collections import Counter
+        path = self.file_path+"front_and_back_barcode_(file_2)/"
+        path_out = self.file_path+"bwa_dir_of_int_(file_3)/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_barcode_int_name_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+            full_path_write = path_out + "final_barcode_dir_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            number_dir=Counter(file)
+            number_sort = sorted(number_dir.items(),key = lambda x:x[1],reverse = True)
+            for i in range(len(number_sort)):
+                line = number_sort[i][0][:-1] + "\t" + str(number_sort[i][1]) + "\n"
+                #if the number of barcode is under 3, it will be removed.
+                if number_sort[i][1] >= 3:
+                    file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_set_few(self,file_path,n,start):
+        from collections import Counter
+        path_out = self.file_path + "int_set_remove_few_(file_3)/"
+        path = self.file_path + "bwa_dir_of_int_(file_3)/"
+        count = self.start
+        while count < self.n:    
+            full_path = path + "final_barcode_dir_info" + str(count) + '.txt'
+            file_read= open(full_path, 'r').readlines()
+            file_write= open(path_out+"int_set_of_contig_"+str(count)+".txt","w")
+    
+            for i in range(len(file_read)):
+                barcode_name = file_read[i].split("\t")[0]
+                file_write.writelines(barcode_name+"\n")
+
+            count+=1
+
+    #get_compare_info    
+    def auto_barcode_intersection_sort(self,file_path,n,start):
+        path_in = self.file_path + "int_set_remove_few_(file_3)/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path + "compare_before_(file_4)/new_info_"+str(j)+"/"
+            full_path = path_in + "int_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+        
+            while count < self.n:
+                full_path_read = path_in +"int_set_of_contig_"+str(count)+".txt"
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out +"int_set_of_contig_"+str(count)+"compare_to_contig_"+str(j)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+
+    def auto_intersection_count_sort(self,file_path,n,start):
+        path_in = self.file_path + "bwa_dir_of_int_(file_3)/"
+        count=self.start
+        j = self.start
+        while j < self.n:
+            path_out = self.file_path + "compare_before_(file_4)/new_info_"+str(j)+"/"
+            while count < self.n:
+                full_path = path_in + "final_barcode_dir_info"+str(count)+".txt"
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path_out + "int_set_of_contig_"+str(count)+"compare_to_contig_"+str(j)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])            
+                count+=1
+       
+            count = self.start
+            j += 1
+            
+    #remove_barcode        
+    def mv_file(self,file_compare,n):
+        import subprocess
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_python_demo/mv_file.sh',self.file_compare,str(self.n-1)])
+    
+    def remove_occur_once(self,file_path,n,start):
+        import os
+        import linecache
+        i = self.start
+        while i < self.n:
+            root = self.file_path + "compare_before_(file_4)/new_info_"+str(i)+"/compara_to_contig"
+            file_names = os.listdir(root)
+        
+            file_ob_list = []
+            for file_name in file_names:
+                fileob = root + '/' + file_name
+                file_ob_list.append(fileob)
+  
+            data = []
+            for file_ob in file_ob_list:
+                line_num = 1
+                length_file = len(open(file_ob,"r").readlines())
+                while line_num <= length_file:
+                    line = linecache.getline(file_ob, line_num)
+                    data.append(line)
+                    line_num = line_num + 1
+                line_num = 1
+
+            f = open(self.file_path + "remove_occur_once_(file_5)/sort_barcode_"+str(i)+".txt", 'w')
+            data_new = list(set(data))
+            for k in data_new:
+                f.write(k)
+            i += 1
+            f.close()
+ 
+    def remove_more_than_k(self,file_path,n,c):
+        import os
+        import linecache
+        from collections import Counter
+        root = self.file_path + "remove_occur_once_(file_5)/"
+        file_names = os.listdir(root)
+    
+        file_ob_list = []
+        for file_name in file_names:
+            fileob = root + '/' + file_name
+            file_ob_list.append(fileob)
+    
+        data = [] 
+        for file_ob in file_ob_list:
+            line_num = 1
+            length_file = len(open(file_ob,"r").readlines())
+            while line_num <= length_file:
+                line = linecache.getline(file_ob, line_num)
+                data.append(line[:-1])
+                line_num = line_num + 1
+            line_num = 1
+    
+        result = Counter(data) 
+        result_new = {k:v for k, v in result.items() if v <= int(self.c)}
+    
+        f=open(self.file_path + "/barcode_int_set_all.txt", 'w')
+        for k, v in result_new.items():
+            #f.writelines(str(k)+"\t"+str(v)+"\n")
+            f.writelines(str(k)+"\n")
+        f.close()
+        
+        
+    def get_int_barcode_set(self,file_path,n,start):
+        path = self.file_path + "remove_occur_once_(file_5)/"
+        path_in = self.file_path + "barcode_int_set_all.txt"
+        path_out = self.file_path + "final_int_barcode(file_6)/"
+        file_ref = open(path_in,"r").readlines()
+        t = self.start
+        while t < self.n:
+            full_path = path + "sort_barcode_" + str(t) + ".txt"
+            file_read = open(full_path, "r").readlines()
+            data = list(set(file_read)&set(file_ref))
+        
+            file_write=open(path_out+"int_set_of_contig_"+str(t)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            t += 1
+
+    def get_dir_barcode_set(self,file_path,n,start):
+        path = self.file_path + "final_int_barcode(file_6)/"
+        path_in = self.file_path + "bwa_dir_of_int_(file_3)/"
+        path_out = self.file_path + "final_dir_barcode(file_7)/"
+
+        t = self.start
+        while t < self.n:
+            file_1=open(path_in+"final_barcode_dir_info"+str(t)+".txt","r").readlines()
+            file_2=open(path+"int_set_of_contig_"+str(t)+".txt","r").readlines()
+            f = open(path_out+"barcode_dir_contig_"+str(t)+".txt","w")
+        
+            dirctory={}
+            for i in range(len(file_1)):
+                dirctory[file_1[i].split("\t")[0]]=file_1[i].split("\t")[1]
+                  
+            for line in file_2:
+                f.writelines(line[:-1]+"\t"+dirctory[line[:-1]])
+            f.close()  
+                      
+            t += 1
+                        
+    def auto_barcode_intersection(self,file_path,n,start):
+        path_in = self.file_path + "final_int_barcode(file_6)/"
+        j = self.start
+        i = self.start
+        while j < self.n:
+            path_out = self.file_path + "compara_file_final_int_(file_8)/new_info_"+str(j)+"/"
+            full_path = path_in + "int_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while i < self.n:
+                full_path_read = path_in +"int_set_of_contig_" + str(i) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(i)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for m in barcode_same:
+                   file_write.writelines(m)
+                i += 1
+            
+            i = self.start
+            j += 1
+
+    def auto_intersection_count(self,file_path,n,start):
+        path_in = self.file_path + "final_dir_barcode(file_7)/"
+        i = self.start
+        j = self.start
+        while j < self.n:
+            while i < self.n:
+                path_out = self.file_path + "compara_file_final_dir_(file_9)/new_info_"+str(j)+"/"
+                path = self.file_path + "compara_file_final_int_(file_8)/new_info_"+str(j)+"/"
+            
+                full_path = path_in + "barcode_dir_contig_"+str(i)+".txt"
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path + "compare_to_contige_"+str(i)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "number_dir_"+str(i)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for m in range(len(file)):
+                    dirctory[file[m].split("\t")[0]]=file[m].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])    
+                        
+                i += 1
+       
+            i = self.start
+            j += 1
+
+    #get_jaccard
+    def auto_barcode_union(self,file_path,n,start):
+        import pandas as pd
+        path_in = self.file_path + "final_int_barcode(file_6)/"
+        j = self.start
+        count = self.start 
+        while j < self.n:
+            path_out = self.file_path + "union_file_final_int_(file_10)/new_info_"+str(j)+"/"
+            full_path = path_in + "int_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while count < self.n:
+                full_path_read = path_in +"int_set_of_contig_" + str(count) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)|set(file_read))
+                for i in barcode_same: 
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+    def barcode_intersection_len(self,file_path,n,start):
+        import pandas as pd
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count=self.start
+        i = self.start-1
+        while i < self.n-1:
+            while count < self.n:
+                path_in = self.file_path + "compara_file_final_int_(file_8)/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+                
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+
+
+    def barcode_union_len(self,file_path,n,start):
+        import pandas as pd
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count=self.start
+        i = self.start-1
+        while i < self.n-1:
+            while count < self.n:
+                path_in = self.file_path + "union_file_final_int_(file_10)/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+                
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+
+
+    def get_jaccard_corr(self,file_path,n,start):
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import pandas as pd
+        info_1 = self.barcode_intersection_len(file_path,n,start)
+        info_2 = self.barcode_union_len(file_path,n,start)
+        info_1_array=np.array(info_1)
+        info_2_array=np.array(info_2)
+        df_1 = pd.DataFrame(info_1_array, columns=["contig"+str(i) for i in range(self.start,self.n)],index=["contig"+str(i) for i in range(self.start,self.n)])
+        df_2 = pd.DataFrame(info_2_array, columns=["contig"+str(i) for i in range(self.start,self.n)],index=["contig"+str(i) for i in range(self.start,self.n)])
+        df_3 = df_1 / df_2
+        df_3_pd= pd.DataFrame(df_3, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start,self.n)])
+        df_3_pd.to_csv(self.file_path+"manually_get_jaccard_matrix.csv",header = True,index=True)
+        
+    #get_sorensen_dice
+    def all_count_of_contig_each(self,file_path,n,start):
+        path = self.file_path + "final_dir_barcode(file_7)/"
+        total_all_info = [[] for _ in range(self.start,self.n)]
+        count = self.start
+        j = self.start-1
+        while j < self.n-1:
+            while count < self.n:
+                path_A = path + "barcode_dir_contig_" + str(j+1) +".txt"
+                path_B = path + "barcode_dir_contig_" + str(count) +".txt"
+                file_A = open(path_A,"r").readlines()
+                file_B = open(path_B,"r").readlines()
+                sum_barcode_A = 0
+                for i in range(len(file_A)):
+                    sum_barcode_A += int(file_A[i].split("\t")[1][:-1])
+                sum_barcode_B = 0
+                for i in range(len(file_B)):
+                    sum_barcode_B += int(file_B[i].split("\t")[1][:-1])
+                sum_bar = sum_barcode_A+sum_barcode_B
+                total_all_info[j-self.start+1].append(sum_bar)
+                count += 1
+                
+            count = self.start
+            j += 1
+        return total_all_info
+        
+    def barcode_total_number(self,file_path,n,start):
+        count = self.start
+        j = self.start-1
+        total_barcode_number=[[] for _ in range(self.start,self.n)]
+        while j < self.n-1:
+            while count < self.n:
+                path_in = self.file_path + "compara_file_final_dir_(file_9)/new_info_"+str(j+1)+"/"
+                path_number = path_in + "number_dir_"+str(count)+".txt"
+                file = open(path_number,"r").readlines()
+            
+                sum_barcode=0
+                for i in range(len(file)):
+                    sum_barcode += int(file[i].split("\t")[1][:-1])
+                total_barcode_number[j-self.start+1].append(sum_barcode)                    
+                count+=1   
+
+            count = self.start
+            j += 1
+    
+        return total_barcode_number       
+ 
+    def get_sorensen_dice(self,file_path,n,start):
+        import pandas as pd
+        import numpy as np       
+        total_all_info_list = self.all_count_of_contig_each(file_path,n,start)
+        total_all_info_np=np.array(total_all_info_list)
+        total_all_pd = pd.DataFrame(total_all_info_np,columns=["contig"+str(i) for i in range(self.start,self.n)], index=["contig"+str(i) for i in range(self.start,self.n)])
+        total_all_pd.to_csv(self.file_path + "add_count_barcode_matrix.csv",index = True, header = True)    
+    
+        total_barcode_list = self.barcode_total_number(file_path,n,start)
+        total_num=np.array(total_barcode_list)
+        total_num_pd = pd.DataFrame(total_num, columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        
+        total_pd = pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                total_pd.loc["contig"+str(i),"contig"+str(j)]=total_num_pd.loc["contig"+str(i),"contig"+str(j)]+total_num_pd.loc["contig"+str(j),"contig"+str(i)]
+                #total_pd.loc["contig"+str(i),"contig"+str(j)]=2*min(total_num_pd.loc["contig"+str(i),"contig"+str(j)],total_num_pd.loc["contig"+str(j),"contig"+str(i)])
+        total_pd.to_csv(self.file_path + "compare_add_count_matrix.csv",index = True, header = True)
+        
+        Sorensen_Dice_rate=pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                Sorensen_Dice_rate.loc["contig"+str(i),"contig"+str(j)] = total_pd.loc["contig"+str(i),"contig"+str(j)]/total_all_pd.loc["contig"+str(i),"contig"+str(j)]
+
+        Sorensen_Dice_rate.to_csv(self.file_path + "Sorensen_Dice_rate_matrix_more.csv",index = True, header = True)
+         
+
+def main(path_bam,file_path,start,n,num,c,file_compare):
+    my_class = Barcode_info(path_bam,file_path,start,n,num,c,file_compare)
+    my_class.create_file(file_path,n)
+    my_class.get_front_barcode_info(path_bam,file_path,start,n,num)
+    my_class.get_back_barcode_info(path_bam,file_path,start,num)
+    my_class.design_file_intbar(file_path,n,start,num)
+    my_class.barcode_bwa_set(file_path,n,start)
+    my_class.barcode_bwa_number(file_path,n,start)
+    my_class.barcode_bwa_set_few(file_path,n,start)
+    my_class.auto_barcode_intersection_sort(file_path,n,start)
+    my_class.auto_intersection_count_sort(file_path,n,start)
+    
+    my_class.mv_file(file_compare,n)
+    my_class.remove_occur_once(file_path,n,start)
+    my_class.remove_more_than_k(file_path,n,c)
+    my_class.get_int_barcode_set(file_path,n,start)
+    my_class.get_dir_barcode_set(file_path,n,start)
+    my_class.auto_barcode_intersection(file_path,n,start)
+    my_class.auto_intersection_count(file_path,n,start)
+    
+    my_class.auto_barcode_union(file_path,n,start)
+    my_class.barcode_intersection_len(file_path,n,start)
+    my_class.barcode_union_len(file_path,n,start)
+    my_class.get_jaccard_corr(file_path,n,start)
+    
+    my_class.all_count_of_contig_each(file_path,n,start)
+    my_class.barcode_total_number(file_path,n,start)
+    my_class.get_sorensen_dice(file_path,n,start)
+    
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--path_bam',type=str)
+parser.add_argument('--file_path', type=str)
+parser.add_argument('--start', type=int)
+parser.add_argument('--n', type=int)
+parser.add_argument('--num',type=int)
+parser.add_argument('--c', type=int)
+parser.add_argument('--file_compare',type=str)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.path_bam,args.file_path,args.start,args.n,args.num,args.c,args.file_compare)
+
+
+[
+#create_file.sh
+path=$1
+mkdir ${path}/front_barcode ${path}/bwa_dir_and_set ${path}/set_remove_few ${path}/compare_before ${path}/remove_occur_once ${path}/final_int_barcode ${path}/final_dir_barcode ${path}/compara_file_final_int ${path}/compara_file_final_dir ${path}/union_file_final_int
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before/new_info_${i}
+  mkdir ${path}/compara_file_final_int/new_info_${i}
+  mkdir ${path}/compara_file_final_dir/new_info_${i}
+  mkdir ${path}/union_file_final_int/new_info_${i}
+done
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir ./compara_to_contig/
+  mv ${path}/new_info_${i}/barcode_set_of_contig_* ${path}/new_info_${i}/compara_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compara_to_contig/barcode_set_of_contig_${i}compare_to_contig_${i}.txt ${path}/new_info_${i}/
+done
+]
+    
+（2）得到前端方向信息的相似度度量矩阵
+import argparse
+class front_info:
+    def __init__(self,file_path,file_path_in,n,start,c,file_compare):
+        self.file_path = file_path
+        self.file_path_in = file_path_in
+        self.n = n
+        self.start = start
+        self.c = c
+        self.file_compare = file_compare
+    
+    def create_file(self,file_path_in,n):
+        import subprocess
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_ff_demo/create_file.sh',self.file_path_in,str(self.n-1)]) 
+        
+    def design_file_intbar(self,file_path,file_path_in,n,start):
+        path = self.file_path + "bwa_original_barcode_name_(file_1)/"
+        path_out = self.file_path_in + "front_barcode/"
+        count = self.start
+        while count < self.n:
+            full_path = path_out + "final_barcode_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'w')
+            full_path_read = path + "front_barcode_info_of_contig" + str(count) + '.txt'
+            file_read = open(full_path_read,"r").readlines()
+            for line in file_read:
+                file.writelines(str(line[:-1])+"\n") 
+                 
+            file.close()     
+            count+=1
+ 
+    def barcode_bwa_set(self,file_path_in,n,start):
+        from collections import Counter
+        path =self.file_path_in +  "front_barcode/"
+        path_out =self.file_path_in +  "bwa_dir_and_set/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_barcode_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+        
+            full_path_write = path_out + "final_barcode_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            barcode_set = set(file)
+    
+            for line in barcode_set:
+                file_write.writelines(line)
+
+            count+=1 
+
+    def barcode_bwa_number(self,file_path_in,n,start):
+        from collections import Counter
+        path = self.file_path_in + "front_barcode/"
+        path_out = self.file_path_in + "bwa_dir_and_set/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_barcode_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+            full_path_write = path_out + "final_barcode_dir_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            number_dir=Counter(file)
+            number_sort = sorted(number_dir.items(),key = lambda x:x[1],reverse = True)
+            for i in range(len(number_sort)):
+                line = number_sort[i][0][:-1] + "\t" + str(number_sort[i][1]) + "\n"
+                #if the number of barcode is more than 2, it will be removed.
+                if number_sort[i][1] >= 2:
+                    file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_set_few(self,file_path_in,n,start):
+        from collections import Counter
+        path_out =self.file_path_in + "set_remove_few/"
+        path = self.file_path_in + "bwa_dir_and_set/"
+        count = self.start
+        while count < self.n:    
+            full_path = path + "final_barcode_dir_info" + str(count) + '.txt'
+            file_read= open(full_path, 'r').readlines()
+        
+            file_write= open(path_out+"barcode_set_of_contig_"+str(count)+".txt","w")
+
+            for i in range(len(file_read)):
+                barcode_name = file_read[i].split("\t")[0]
+                file_write.writelines(barcode_name+"\n")
+
+            count+=1
+
+    def auto_barcode_intersection_sort(self,file_path_in,n,start):
+        path_in =self.file_path_in + "set_remove_few/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before/new_info_"+str(j)+"/"
+            full_path = path_in + "barcode_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+        
+            while count < self.n:
+                full_path_read = path_in +"barcode_set_of_contig_"+str(count)+".txt"
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out +"barcode_set_of_contig_"+str(count)+"compare_to_contig_"+str(j)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+
+    def auto_intersection_count_sort(self,file_path_in,n,start):
+        path_in = self.file_path_in + "bwa_dir_and_set/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before/new_info_"+str(j)+"/"
+            while count < self.n:
+                full_path = path_in + "final_barcode_dir_info"+str(count)+".txt"
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path_out + "barcode_set_of_contig_"+str(count)+"compare_to_contig_"+str(j)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])            
+                count+=1
+       
+            count = self.start
+            j += 1
+            
+    #filter
+    def mv_file(self,file_compare,n):
+        import subprocess
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_ff_demo/mv_file.sh',self.file_compare,str(self.n-1)])
+    
+    def combine_file(self,file_path_in,n,start):
+        import os 
+        import linecache
+        i = self.start
+        while i < self.n:
+            root = self.file_path_in + "compare_before/new_info_"+str(i)+"/compara_to_contig"
+            file_names = os.listdir(root)
+        
+            file_ob_list = []
+            for file_name in file_names:
+                fileob = root + '/' + file_name
+                file_ob_list.append(fileob)
+  
+            data = []
+            for file_ob in file_ob_list:
+                line_num = 1
+                length_file = len(open(file_ob,"r").readlines())
+                while line_num <= length_file:
+                    line = linecache.getline(file_ob, line_num)
+                    data.append(line)
+                    line_num = line_num + 1
+                line_num = 1
+
+            f = open(self.file_path_in + "remove_occur_once/sort_barcode_"+str(i)+".txt", 'w')
+            data_new = list(set(data))
+            for k in data_new:
+                f.write(k)
+            i += 1
+            f.close()
+
+    def sort_useful_info(self,file_path_in,c):
+        import os
+        import linecache
+        from collections import Counter
+        root = self.file_path_in + "remove_occur_once/"
+        file_names = os.listdir(root)
+    
+        file_ob_list = []
+        for file_name in file_names:
+            fileob = root + '/' + file_name
+            file_ob_list.append(fileob)
+    
+        data = [] 
+        for file_ob in file_ob_list:
+            line_num = 1
+            length_file = len(open(file_ob,"r").readlines())
+            while line_num <= length_file:
+                line = linecache.getline(file_ob, line_num)
+                data.append(line[:-1])
+                line_num = line_num + 1
+            line_num = 1
+    
+        result = Counter(data) 
+        result_new = {k:v for k, v in result.items() if v <= self.c}
+    
+        f=open(self.file_path_in + "barcode_set_all.txt", 'w')
+        for k, v in result_new.items():
+            f.writelines(str(k)+"\n")
+        f.close()
+
+
+    def get_int_barcode_set(self,file_path_in,start):
+        path =self.file_path_in + "remove_occur_once/"
+        path_in = self.file_path_in +"barcode_set_all.txt"
+        path_out = self.file_path_in +"final_int_barcode/"
+        file_ref = open(path_in,"r").readlines()
+        count = self.start
+        while count < self.n:
+            full_path = path + "sort_barcode_" + str(count) + ".txt"
+            file_read = open(full_path, "r").readlines()
+            data = list(set(file_read)&set(file_ref))
+        
+            file_write=open(path_out+"barcode_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1
+
+    def get_dir_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in +"final_int_barcode/"
+        path_in = self.file_path_in +"bwa_dir_and_set/"
+        path_out = self.file_path_in +"final_dir_barcode/"
+
+        count = self.start
+        while count < self.n:
+            file_1=open(path_in+"final_barcode_dir_info"+str(count)+".txt","r").readlines()
+            file_2=open(path+"barcode_set_of_contig_"+str(count)+".txt","r").readlines()
+            f = open(path_out+"barcode_dir_contig_"+str(count)+".txt","w")
+        
+            dirctory={}
+            for i in range(len(file_1)):
+                dirctory[file_1[i].split("\t")[0]]=file_1[i].split("\t")[1]
+                  
+            for line in file_2:
+                f.writelines(line[:-1]+"\t"+dirctory[line[:-1]])
+            f.close()  
+                      
+            count += 1
+            
+    def auto_barcode_intersection(self,file_path_in,n,start):
+        path_in = self.file_path_in + "final_int_barcode/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compara_file_final_int/new_info_"+str(j)+"/"
+            full_path = path_in + "barcode_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while count < self.n:
+                full_path_read = path_in +"barcode_set_of_contig_" + str(count) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+    
+    def auto_intersection_count(self,file_path_in,n,start):
+        path_in = self.file_path_in + "final_dir_barcode/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            while count < self.n:
+                path_out = self.file_path_in + "compara_file_final_dir/new_info_"+str(j)+"/"
+                path = self.file_path_in + "compara_file_final_int/new_info_"+str(j)+"/"
+            
+                full_path = path_in + "barcode_dir_contig_"+str(count)+".txt"
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])    
+                        
+                count+=1
+            
+            count = self.start
+            j += 1
+            
+    #get_matrix
+    def all_count_of_contig_each(self,file_path_in,n,start):
+        path = self.file_path_in + "final_dir_barcode/"
+        total_all_info = [[] for _ in range(self.start,self.n)]
+        count = self.start
+        j = self.start-1
+        while j < self.n-1:
+            while count < self.n:
+                path_A = path + "barcode_dir_contig_" + str(j+1) +".txt"
+                path_B = path + "barcode_dir_contig_" + str(count) +".txt"
+                file_A = open(path_A,"r").readlines()
+                file_B = open(path_B,"r").readlines()
+                sum_barcode_A = 0
+                for i in range(len(file_A)):
+                    sum_barcode_A += int(file_A[i].split("\t")[1][:-1])
+                sum_barcode_B = 0
+                for i in range(len(file_B)):
+                    sum_barcode_B += int(file_B[i].split("\t")[1][:-1])
+                sum_bar = sum_barcode_A + sum_barcode_B
+                total_all_info[j-self.start+1].append(sum_bar)
+                count += 1
+                
+            count = self.start
+            j += 1
+        return total_all_info
+        
+    def barcode_total_number(self,file_path_in,n,start):
+        count = self.start
+        j = self.start-1
+        total_barcode_number=[[] for _ in range(self.start,self.n)]
+        while j < self.n-1:
+            while count < self.n:
+                path_in = self.file_path_in + "compara_file_final_dir/new_info_"+str(j+1)+"/"
+                path_number = path_in + "number_dir_"+str(count)+".txt"
+                file = open(path_number,"r").readlines()
+            
+                sum_barcode=0
+                for i in range(len(file)):
+                    sum_barcode += int(file[i].split("\t")[1][:-1])
+                total_barcode_number[j-self.start+1].append(sum_barcode)                    
+                count+=1   
+
+            count = self.start
+            j += 1
+    
+        return total_barcode_number        
+        
+    def get_sorensen_dice(self,file_path_in,n,start):
+        import pandas as pd
+        import numpy as np       
+        total_all_info_list = self.all_count_of_contig_each(file_path_in,n,start)
+        total_all_info_np=np.array(total_all_info_list)
+        total_all_pd = pd.DataFrame(total_all_info_np,columns=["contig"+str(i) for i in range(self.start,self.n)], index=["contig"+str(i) for i in range(self.start,self.n)])
+        total_all_pd.to_csv(self.file_path_in + "add_count_barcode_matrix(front_front).csv",index = True, header = True)    
+    
+        total_barcode_list = self.barcode_total_number(file_path_in,n,start)
+        total_num=np.array(total_barcode_list)
+        total_num_pd = pd.DataFrame(total_num, columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        
+        total_pd = pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                total_pd.loc["contig"+str(i),"contig"+str(j)] = total_num_pd.loc["contig"+str(i),"contig"+str(j)]+total_num_pd.loc["contig"+str(j),"contig"+str(i)]
+        total_pd.to_csv(self.file_path_in + "compare_add_count_matrix(front_front).csv",index = True, header = True)
+        
+        Sorensen_Dice_rate=pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                Sorensen_Dice_rate.loc["contig"+str(i),"contig"+str(j)] = total_pd.loc["contig"+str(i),"contig"+str(j)]/total_all_pd.loc["contig"+str(i),"contig"+str(j)]
+
+        Sorensen_Dice_rate.to_csv(self.file_path_in + "Sorensen_Dice_rate_matrix_more(front_front).csv",index = True, header = True)        
+
+        
+    def auto_barcode_union(self,file_path_in,n,start):
+        import pandas as pd
+        path_in = self.file_path_in + "final_int_barcode/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "union_file_final_int/new_info_"+str(j)+"/"
+            full_path = path_in + "barcode_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while count < self.n:
+                full_path_read = path_in +"barcode_set_of_contig_" + str(count) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)|set(file_read))
+                for i in barcode_same: 
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+    def barcode_intersection_len(self,file_path_in,n,start):
+        import pandas as pd
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start
+        i = self.start-1
+        while i < self.n -1:
+            while count < self.n:
+                path_in =self.file_path_in + "compara_file_final_int/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+
+
+    def barcode_union_len(self,file_path_in,n,start):
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start
+        i = self.start-1
+        while i < self.n-1:
+            while count < (self.n):
+                path_in = self.file_path_in + "union_file_final_int/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+
+    def get_jaccard(self,file_path_in,n,start):
+        import numpy as np
+        import seaborn as sns
+        import pandas as pd
+        import matplotlib.pyplot as plt
+        info_1 = self.barcode_intersection_len(file_path_in,n,start)
+        info_2 = self.barcode_union_len(file_path_in,n,start)
+        info_1_array=np.array(info_1)
+        info_2_array=np.array(info_2)
+        df_1 = pd.DataFrame(info_1_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_2 = pd.DataFrame(info_2_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3 = df_1 / df_2
+        df_3_pd= pd.DataFrame(df_3, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3_pd.to_csv(self.file_path_in + "manually_get_jaccard_matrix(f-f).csv",header = True,index=True)
+
+
+
+def main(file_path,file_path_in,n,start,c,file_compare):
+    my_class = front_info(file_path,file_path_in,n,start,c,file_compare)
+    my_class.create_file(file_path_in,n)
+    my_class.design_file_intbar(file_path,file_path_in,n,start)
+    my_class.barcode_bwa_set(file_path_in,n,start)
+    my_class.barcode_bwa_number(file_path_in,n,start)
+    my_class.barcode_bwa_set_few(file_path_in,n,start)
+    my_class.auto_barcode_intersection_sort(file_path_in,n,start)
+    my_class.auto_intersection_count_sort(file_path_in,n,start)
+    
+    my_class.mv_file(file_compare,n)
+    my_class.combine_file(file_path_in,n,start)
+    my_class.sort_useful_info(file_path_in,c)
+    my_class.get_int_barcode_set(file_path_in,start)
+    my_class.get_dir_barcode_set(file_path_in,n,start)
+    my_class.auto_barcode_intersection(file_path_in,n,start)
+    my_class.auto_intersection_count(file_path_in,n,start)
+    
+    my_class.all_count_of_contig_each(file_path_in,n,start)
+    my_class.barcode_total_number(file_path_in,n,start)
+    my_class.get_sorensen_dice(file_path_in,n,start)
+    my_class.auto_barcode_union(file_path_in,n,start)
+    my_class.barcode_intersection_len(file_path_in,n,start)
+    my_class.barcode_union_len(file_path_in,n,start)
+    my_class.get_jaccard(file_path_in,n,start)
+    
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--file_path', type=str)
+parser.add_argument('--file_path_in', type=str)
+parser.add_argument('--n', type=int)
+parser.add_argument('--start', type=int)
+parser.add_argument('--c', type=int)
+parser.add_argument('--file_compare',type=str)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.file_path,args.file_path_in,args.n,args.start,args.c,args.file_compare)    
+
+[
+#create_file.sh
+path=$1
+mkdir ${path}/bwa_original_barcode_name ${path}/back_barcode ${path}/bwa_dir_and_set ${path}/set_remove_few ${path}/compare_before ${path}/remove_occur_once ${path}/final_int_barcode ${path}/final_dir_barcode ${path}/compara_file_final_int ${path}/compara_file_final_dir ${path}/union_file_final_int
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before/new_info_${i}
+  mkdir ${path}/compara_file_final_int/new_info_${i}
+  mkdir ${path}/compara_file_final_dir/new_info_${i}
+  mkdir ${path}/union_file_final_int/new_info_${i}
+done
+
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir ./compara_to_contig/
+  mv ${path}/new_info_${i}/barcode_set_of_contig_* ${path}/new_info_${i}/compara_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compara_to_contig/barcode_set_of_contig_${i}compare_to_contig_${i}.txt ${path}/new_info_${i}/
+done
+]
+（3）得到后端方向信息的相似度度量矩阵
+import argparse
+class back_info:
+    def __init__(self,file_path,file_path_in,n,start,c,file_compare):
+        self.file_path = file_path
+        self.file_path_in = file_path_in
+        self.n = n  
+        self.start = start
+        self.c = c
+        self.file_compare = file_compare
+
+    def create_file(self,file_path_in,n):
+        import subprocess
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_bb_demo/create_file.sh',self.file_path_in,str(self.n-1)]) 
+    
+    def design_file_intbar(self,file_path,file_path_in,n,start):
+        path = self.file_path + "bwa_original_barcode_name_(file_1)/"
+        path_out = self.file_path_in + "back_barcode/"
+        count = self.start
+        while count < self.n:
+            full_path = path_out + "final_barcode_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'w')
+            full_path_read = path + "back_barcode_info_of_contig" + str(count) + '.txt'
+            file_read = open(full_path_read,"r").readlines()
+            for line in file_read:
+                file.writelines(str(line[:-1])+"\n") 
+                 
+            file.close()     
+            count+=1
+ 
+    def barcode_bwa_set(self,file_path_in,n,start):
+        from collections import Counter
+        path = self.file_path_in + "back_barcode/"
+        path_out = self.file_path_in + "bwa_dir_and_set/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_barcode_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+        
+            full_path_write = path_out + "final_barcode_set_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            barcode_set = set(file)
+    
+            for line in barcode_set:
+                file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_number(self,file_path_in,n,start):
+        from collections import Counter
+        path = self.file_path_in + "back_barcode/"
+        path_out = self.file_path_in + "bwa_dir_and_set/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_barcode_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+            full_path_write = path_out + "final_barcode_dir_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            number_dir=Counter(file)
+            number_sort = sorted(number_dir.items(),key = lambda x:x[1],reverse = True)
+            for i in range(len(number_sort)):
+                line = number_sort[i][0][:-1] + "\t" + str(number_sort[i][1]) + "\n"
+                #if the number of barcode is more than 2, it will be removed.
+                if number_sort[i][1] >= 2:
+                    file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_set_few(self,file_path_in,n,start):
+        from collections import Counter
+        path_out = self.file_path_in + "set_remove_few/"
+        path = self.file_path_in + "bwa_dir_and_set/"
+        count = self.start
+        while count < self.n:    
+            full_path = path + "final_barcode_dir_info" + str(count) + '.txt'
+            file_read= open(full_path, 'r').readlines()
+        
+            file_write= open(path_out+"barcode_set_of_contig_"+str(count)+".txt","w")
+
+            for i in range(len(file_read)):
+                barcode_name = file_read[i].split("\t")[0]
+                file_write.writelines(barcode_name+"\n")
+
+            count+=1   
+            
+    #get_compare_information_in_order_to_filter_useless_barcode
+    def auto_barcode_intersection_sort(self,file_path_in,n,start):
+        path_in = self.file_path_in + "set_remove_few/"
+        j = self.start 
+        count = self.start 
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before/new_info_"+str(j)+"/"
+            full_path = path_in + "barcode_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+        
+            while count < self.n:
+                full_path_read = path_in +"barcode_set_of_contig_"+str(count)+".txt"
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out +"barcode_set_of_contig_"+str(count)+"compare_to_contig_"+str(j)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+    def auto_intersection_count_sort(self,file_path_in,n,start):
+        path_in = self.file_path_in + "bwa_dir_and_set/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before/new_info_"+str(j)+"/"
+            while count < self.n:
+                full_path = path_in + "final_barcode_dir_info"+str(count)+".txt"
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path_out + "barcode_set_of_contig_"+str(count)+"compare_to_contig_"+str(j)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])            
+                count+=1
+       
+            count = self.start
+            j += 1  
+
+            
+    #filter
+    def mv_file(self,file_compare,n):
+        import subprocess
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_bb_demo/mv_file.sh',self.file_compare,str(self.n-1)])
+
+    def combine_file(self,file_path_in,n,start):
+        import os
+        import linecache
+        i = self.start
+        while i < self.n:
+            root = self.file_path_in + "compare_before/new_info_"+str(i)+"/compara_to_contig"
+            file_names = os.listdir(root)
+        
+            file_ob_list = []
+            for file_name in file_names:
+                fileob = root + '/' + file_name
+                file_ob_list.append(fileob)
+  
+            data = []
+            for file_ob in file_ob_list:
+                line_num = 1
+                length_file = len(open(file_ob,"r").readlines())
+                while line_num <= length_file:
+                    line = linecache.getline(file_ob, line_num)
+                    data.append(line)
+                    line_num = line_num + 1
+                line_num = 1
+
+            f = open(self.file_path_in + "remove_occur_once/sort_barcode_"+str(i)+".txt", 'w')
+            data_new = list(set(data))
+            for k in data_new:
+                f.write(k)
+            i += 1
+            f.close()
+
+    def sort_useful_info(self,file_path_in,c):
+        import os
+        import linecache
+        from collections import Counter
+        root = self.file_path_in + "remove_occur_once/"
+        file_names = os.listdir(root)
+    
+        file_ob_list = []
+        for file_name in file_names:
+            fileob = root + '/' + file_name
+            file_ob_list.append(fileob)
+    
+        data = [] 
+        for file_ob in file_ob_list:
+            line_num = 1
+            length_file = len(open(file_ob,"r").readlines())
+            while line_num <= length_file:
+                line = linecache.getline(file_ob, line_num)
+                data.append(line[:-1])
+                line_num = line_num + 1
+            line_num = 1
+    
+        result = Counter(data) 
+        result_new = {k:v for k, v in result.items() if v <= self.c}
+    
+        f = open(self.file_path_in + "barcode_set_all.txt", 'w')
+        for k, v in result_new.items():
+            f.writelines(str(k)+"\n")
+        f.close()
+
+    def get_int_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "remove_occur_once/"
+        path_in = self.file_path_in + "barcode_set_all.txt"
+        path_out = self.file_path_in + "final_int_barcode/"
+        file_ref = open(path_in,"r").readlines()
+        count = self.start
+        while count < self.n:
+            full_path = path + "sort_barcode_" + str(count) + ".txt"
+            file_read = open(full_path, "r").readlines()
+            data = list(set(file_read)&set(file_ref))
+        
+            file_write=open(path_out+"barcode_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1
+
+
+    def get_dir_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "final_int_barcode/"
+        path_in = self.file_path_in + "bwa_dir_and_set/"
+        path_out = self.file_path_in + "final_dir_barcode/"
+
+        count = self.start
+        while count < self.n:
+            file_1=open(path_in+"final_barcode_dir_info"+str(count)+".txt","r").readlines()
+            file_2=open(path+"barcode_set_of_contig_"+str(count)+".txt","r").readlines()
+            f = open(path_out+"barcode_dir_contig_"+str(count)+".txt","w")
+        
+            dirctory={}
+            for i in range(len(file_1)):
+                dirctory[file_1[i].split("\t")[0]]=file_1[i].split("\t")[1]
+                  
+            for line in file_2:
+                f.writelines(line[:-1]+"\t"+dirctory[line[:-1]])
+            f.close()  
+                      
+            count += 1
+    #get_final_compare_info    
+    def auto_barcode_intersection(self,file_path_in,n,start):
+        path_in = self.file_path_in + "final_int_barcode/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compara_file_final_int/new_info_"+str(j)+"/"
+            full_path = path_in + "barcode_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while count < self.n:
+                full_path_read = path_in +"barcode_set_of_contig_" + str(count) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+    
+    def auto_intersection_count(self,file_path_in,n,start):
+        path_in = self.file_path_in + "final_dir_barcode/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            while count < self.n:
+                path_out = self.file_path_in + "compara_file_final_dir/new_info_"+str(j)+"/"
+                path = self.file_path_in + "compara_file_final_int/new_info_"+str(j)+"/"
+            
+                full_path = path_in + "barcode_dir_contig_"+str(count)+".txt"
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                   
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])    
+                        
+                count+=1
+       
+            count = self.start
+            j += 1
+            
+    #get_matrix
+    def all_count_of_contig_each(self,file_path_in,n,start):
+        import pandas as pd
+        import numpy as np
+        path = self.file_path_in + "final_dir_barcode/"
+        total_all_info = [[] for _ in range(self.start,self.n)]
+        count = self.start 
+        j = self.start-1
+        while j < self.n-1:
+            while count < (self.n):
+                path_A = path + "barcode_dir_contig_" + str(j+1) +".txt"
+                path_B = path + "barcode_dir_contig_" + str(count) +".txt"
+                file_A = open(path_A,"r").readlines()
+                file_B = open(path_B,"r").readlines()
+                sum_barcode_A = 0
+                for i in range(len(file_A)):
+                    sum_barcode_A += int(file_A[i].split("\t")[1][:-1])
+                sum_barcode_B = 0
+                for i in range(len(file_B)):
+                    sum_barcode_B += int(file_B[i].split("\t")[1][:-1])
+                sum_bar = sum_barcode_A+sum_barcode_B
+                total_all_info[j-self.start+1].append(sum_bar)
+                count += 1
+            count = self.start 
+            j += 1
+        return total_all_info
+        
+    def barcode_total_number(self,file_path_in,n,start):
+        count = self.start 
+        j = self.start-1
+        total_barcode_number=[[] for _ in range(self.start,self.n)]
+        while j < self.n-1:
+            while count < (self.n):
+                path_in = self.file_path_in + "compara_file_final_dir/new_info_"+str(j+1)+"/"
+                path_number = path_in + "number_dir_"+str(count)+".txt"
+                file = open(path_number,"r").readlines()
+            
+                sum_barcode=0
+                for i in range(len(file)):
+                    sum_barcode += int(file[i].split("\t")[1][:-1])
+                total_barcode_number[j-self.start+1].append(sum_barcode)                    
+                count+=1   
+
+            count = self.start 
+            j += 1
+    
+        return total_barcode_number
+    
+    #get_sorensen_dice_matrix
+    def get_sorensen_dice(self,file_path_in,n,start):
+        import pandas as pd
+        import numpy as np       
+        total_all_info_list = self.all_count_of_contig_each(file_path_in,n,start)
+        total_all_info_np=np.array(total_all_info_list)
+        total_all_pd = pd.DataFrame(total_all_info_np,columns=["contig"+str(i) for i in range(self.start,self.n)], index=["contig"+str(i) for i in range(self.start,self.n)])
+        total_all_pd.to_csv(self.file_path_in + "add_count_barcode_matrix(back_back).csv",index = True, header = True)    
+    
+        total_barcode_list = self.barcode_total_number(file_path_in,n,start)
+        total_num=np.array(total_barcode_list)
+        total_num_pd = pd.DataFrame(total_num, columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        
+        total_pd = pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                total_pd.loc["contig"+str(i),"contig"+str(j)] = total_num_pd.loc["contig"+str(i),"contig"+str(j)]+total_num_pd.loc["contig"+str(j),"contig"+str(i)]
+        total_pd.to_csv(self.file_path_in + "compare_add_count_matrix(back_back).csv",index = True, header = True)
+        
+        Sorensen_Dice_rate=pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start , self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                Sorensen_Dice_rate.loc["contig"+str(i),"contig"+str(j)] = total_pd.loc["contig"+str(i),"contig"+str(j)]/total_all_pd.loc["contig"+str(i),"contig"+str(j)]
+
+        Sorensen_Dice_rate.to_csv(self.file_path_in + "Sorensen_Dice_rate_matrix_more(back_back).csv",index = True, header = True)        
+
+
+    def auto_barcode_union(self,file_path_in,n,start):
+        import pandas as pd
+        path_in =self.file_path_in + "final_int_barcode/"
+        j = self.start 
+        count = self.start 
+        while j < self.n:
+            path_out = self.file_path_in + "union_file_final_int/new_info_"+str(j)+"/"
+            full_path = path_in + "barcode_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while count < self.n:
+                full_path_read = path_in +"barcode_set_of_contig_" + str(count) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)|set(file_read))
+                for i in barcode_same: 
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start 
+            j += 1
+        
+    def barcode_intersection_len(self,file_path_in,n,start):
+        import pandas as pd
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start 
+        i = self.start-1 
+        while i < self.n-1:
+            while count < self.n:
+                path_in = self.file_path_in + "compara_file_final_int/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start 
+            i += 1
+        return total_barcode_catagory
+
+    def barcode_union_len(self,file_path_in,n,start):
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start
+        i = self.start-1
+        while i < self.n-1:
+            while count < (self.n):
+                path_in = self.file_path_in + "union_file_final_int/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+        
+    def get_jaccard(self,file_path_in,n,start):
+        import numpy as np
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        import pandas as pd
+        info_1 = self.barcode_intersection_len(file_path_in,n,start)
+        info_2 = self.barcode_union_len(file_path_in,n,start)
+        info_1_array=np.array(info_1)
+        info_2_array=np.array(info_2)
+        df_1 = pd.DataFrame(info_1_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_2 = pd.DataFrame(info_2_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3 = df_1 / df_2
+        df_3_pd= pd.DataFrame(df_3, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3_pd.to_csv(self.file_path_in + "manually_get_jaccard_matrix(b-b).csv",header = True,index=True)
+               
+def main(file_path,file_path_in,n,start,c,file_compare):
+    my_class = back_info(file_path,file_path_in,n,start,c,file_compare)
+    my_class.create_file(file_path_in,n)
+    my_class.design_file_intbar(file_path,file_path_in,n,start)
+    my_class.barcode_bwa_set(file_path_in,n,start)
+    my_class.barcode_bwa_number(file_path_in,n,start)
+    my_class.barcode_bwa_set_few(file_path_in,n,start)
+    my_class.auto_barcode_intersection_sort(file_path_in,n,start)
+    my_class.auto_intersection_count_sort(file_path_in,n,start)
+    
+    my_class.mv_file(file_compare,n)
+    my_class.combine_file(file_path_in,n,start)
+    my_class.sort_useful_info(file_path_in,c)
+    my_class.get_int_barcode_set(file_path_in,n,start)
+    my_class.get_dir_barcode_set(file_path_in,n,start)
+    my_class.auto_barcode_intersection(file_path_in,n,start)
+    my_class.auto_intersection_count(file_path_in,n,start)
+    
+    my_class.all_count_of_contig_each(file_path_in,n,start)
+    my_class.barcode_total_number(file_path_in,n,start)
+    my_class.get_sorensen_dice(file_path_in,n,start)
+    my_class.auto_barcode_union(file_path_in,n,start)
+    my_class.barcode_intersection_len(file_path_in,n,start)
+    my_class.barcode_union_len(file_path_in,n,start)
+    my_class.get_jaccard(file_path_in,n,start)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--file_path', type=str)
+parser.add_argument('--file_path_in', type=str)
+parser.add_argument('--n', type=int)
+parser.add_argument('--start', type=int)
+parser.add_argument('--c', type=int)
+parser.add_argument('--file_compare',type=str)
+
+args = parser.parse_args() 
+if __name__ == '__main__':
+    main(args.file_path,args.file_path_in,args.n,args.start,args.c,args.file_compare)    
+
+（4）得到前端—后端方向信息的相似度度量矩阵和后端—前端方向信息的相似度度量矩阵
+[
+#create_file.sh
+path=$1
+mkdir ${path}/original_front_info ${path}/original_back_info ${path}/bwa_set_count_front ${path}/bwa_set_count_back ${path}/bwa_dir_of_int_front ${path}/bwa_dir_of_int_back ${path}/int_set_remove_few_front ${path}/int_set_remove_few_back ${path}/compare_before\(f-b\) ${path}/compare_before\(b-f\) ${path}/compare_after\(f-b\) ${path}/compare_after\(b-f\) ${path}/remove_occur_once\(f-b\) ${path}/final_int_barcode\(f-b\) ${path}/final_dir_barcode\(f-b\) ${path}/remove_occur_once\(b-f\) ${path}/final_int_barcode\(b-f\) ${path}/final_dir_barcode\(b-f\) ${path}/new_back_info_of_each ${path}/new_front_info_of_each ${path}/union_file_final_int\(f-b\) ${path}/union_file_final_int\(b-f\)
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before\(f-b\)/new_info_${i}
+  mkdir ${path}/compare_before\(b-f\)/new_info_${i}
+  mkdir ${path}/compare_after\(f-b\)/new_info_${i}
+  mkdir ${path}/compare_after\(b-f\)/new_info_${i}
+  mkdir ${path}/union_file_final_int\(f-b\)/new_info_${i}
+  mkdir ${path}/union_file_final_int\(b-f\)/new_info_${i}
+done
+
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir compare_to_contig
+  mv ${path}/new_info_${i}/front_*compare_to_back_* ${path}/new_info_${i}/compare_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compare_to_contig/front_${i}compare_to_back_${i}.txt ${path}/new_info_${i}/
+done
+
+path=$3
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir compare_to_contig
+  mv ${path}/new_info_${i}/back_*compare_to_front_* ${path}/new_info_${i}/compare_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compare_to_contig/back_${i}compare_to_front_${i}.txt ${path}/new_info_${i}/
+done
+]
+
+import argparse
+class barcode_info:
+    def __init__(self,file_path,file_path_in,n,num,start):
+        self.file_path = file_path
+        self.file_path_in = file_path_in
+        self.n = n
+        self.num = num
+        self.start = start
+    
+    def create_file(self,file_path_in,n):
+        import subprocess
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_bf_demo/create_file.sh',self.file_path_in,str(self.n-1)]) 
+
+    def get_front_barcode_info(self,file_path,file_path_in,start,n,num):
+        path = self.file_path + "get_bam_info/"
+        path_out = self.file_path_in + "original_front_info/"
+
+        length_data = open(self.file_path + "output_with_depth_table.txt","r").readlines()
+        length_list = {}
+        for i in range(1,len(length_data)):
+            name = length_data[i].split("\t")[0].split("_")[1]
+            length = length_data[i].split("\t")[1]
+            length_list[name] = int(length)
+
+        for i in range(self.start,self.n):
+            if length_list[str(i)] >= 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "front_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) <=self.num:
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+
+            elif length_list[str(i)] < 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "front_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) <= (length_list[str(i)])//2:
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+                
+    
+    def get_back_barcode_info(self,file_path,file_path_in,start,n,num):
+        path = self.file_path +"get_bam_info/"
+        path_out = self.file_path_in +"original_back_info/"
+        length_data = open(self.file_path+"output_with_depth_table.txt","r").readlines()
+        length_list = {}
+        for i in range(1,len(length_data)):
+            name = length_data[i].split("\t")[0].split("_")[1]
+            length = length_data[i].split("\t")[1]
+            length_list[name] = int(length)
+        print(length_list)
+        
+        for i in range(self.start,self.n):
+            if length_list[str(i)] >= 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "back_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) >= int(int(length_list[str(i)])-self.num):
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+                file_write.close()
+            
+            elif length_list[str(i)] < 2*self.num:
+                full_path = path + "final_out_"+str(i)+".info.txt"
+                file_read = open(full_path,"r").readlines()
+                full_write_path = path_out + "back_barcode_info_of_contig"+str(i)+".txt"
+                file_write = open(full_write_path,"w")
+                for j in range(len(file_read)):
+                    if int(file_read[j].split("\t")[3]) >= (length_list[str(i)])//2:
+                        line = file_read[j].split("\t")[0].split(":")[-1]
+                        file_write.writelines(line+"\n")
+                file_write.close()
+            
+    def barcode_bwa_set(self,file_path_in,n,start):
+        path = self.file_path_in + "original_front_info/"
+        path_out = self.file_path_in + "bwa_set_count_front/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "front_barcode_info_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+        
+            full_path_write = path_out + "front_barcode_int_set_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            barcode_set = set(file)
+    
+            for line in barcode_set:
+                file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_set_1(self,file_path_in,n,start):
+        path = self.file_path_in + "original_back_info/"
+        path_out = self.file_path_in + "bwa_set_count_back/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "back_barcode_info_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+        
+            full_path_write = path_out + "back_barcode_int_set_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            barcode_set = set(file)
+    
+            for line in barcode_set:
+                file_write.writelines(line)
+
+            count+=1
+    
+    #if the barcode only occurs once, it will be remove. so there is already a step to filter useless barcodes.
+    def barcode_bwa_number(self,file_path_in,n,start):
+        from collections import Counter
+        path = self.file_path_in + "original_front_info/"
+        path_out = self.file_path_in  + "bwa_dir_of_int_front/"
+        count = self.start
+        while count <self.n:
+            full_path = path + "front_barcode_info_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+            full_path_write = path_out + "front_barcode_dir_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            number_dir=Counter(file)
+            number_sort = sorted(number_dir.items(),key = lambda x:x[1],reverse = True)
+            for i in range(len(number_sort)):
+                line = number_sort[i][0][:-1] + "\t" + str(number_sort[i][1]) + "\n"
+                if int(number_sort[i][1]) >= 2:
+                    file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_number_1(self,file_path_in,n,start):
+        from collections import Counter
+        path = self.file_path_in + "original_back_info/"
+        path_out = self.file_path_in + "bwa_dir_of_int_back/"
+        count = self.start
+        while count < self.n:
+            full_path = path + "back_barcode_info_of_contig" + str(count) + '.txt'
+            file = open(full_path, 'r').readlines()
+            full_path_write = path_out + "back_barcode_dir_info" + str(count) + '.txt'
+            file_write = open(full_path_write, 'w')
+            number_dir=Counter(file)
+            number_sort = sorted(number_dir.items(),key = lambda x:x[1],reverse = True)
+            for i in range(len(number_sort)):
+                line = number_sort[i][0][:-1] + "\t" + str(number_sort[i][1]) + "\n"
+                if int(number_sort[i][1]) >= 2:
+                    file_write.writelines(line)
+
+            count+=1
+
+    def barcode_bwa_set_few(self,file_path_in,n,start):
+        from collections import Counter
+        path_out = self.file_path_in + "int_set_remove_few_front/"
+        path = self.file_path_in + "bwa_dir_of_int_front/"
+        count = self.start
+        while count < self.n:    
+            full_path = path + "front_barcode_dir_info" + str(count) + '.txt'
+            file_read= open(full_path, 'r').readlines()
+        
+            file_write= open(path_out+"front_int_set_of_contig_"+str(count)+".txt","w")
+            for i in range(len(file_read)):
+                barcode_name = file_read[i].split("\t")[0]
+                file_write.writelines(barcode_name+"\n")
+
+            count+=1
+ 
+    def barcode_bwa_set_few_1(self,file_path_in,n,start):
+        from collections import Counter
+        path_out = self.file_path_in + "int_set_remove_few_back/"
+        path = self.file_path_in + "bwa_dir_of_int_back/"
+        count = self.start
+        while count < self.n:    
+            full_path = path + "back_barcode_dir_info" + str(count) + '.txt'
+            file_read= open(full_path, 'r').readlines()
+        
+            file_write= open(path_out+"back_int_set_of_contig_"+str(count)+".txt","w")
+    
+            for i in range(len(file_read)):
+                barcode_name = file_read[i].split("\t")[0]
+                file_write.writelines(barcode_name+"\n")
+
+            count+=1
+
+    #front-back
+    def auto_barcode_intersection_sort(self,file_path_in,n,start):
+        path_in_front = self.file_path_in + "int_set_remove_few_front/"
+        path_in_back = self.file_path_in + "int_set_remove_few_back/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before(f-b)/new_info_"+str(j)+"/"
+            full_path = path_in_front + "front_int_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+        
+            while count < self.n:
+                full_path_read = path_in_back +"back_int_set_of_contig_"+str(count)+".txt"
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out +"front_"+str(j)+"compare_to_back_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+    def auto_intersection_count_sort(self,file_path_in,n,start):
+        path_in_back = self.file_path_in + "bwa_dir_of_int_back/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before(f-b)/new_info_"+str(j)+"/"
+            while count < self.n:
+                full_path = path_in_back + "back_barcode_dir_info" + str(count) + '.txt'
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path_out + "front_"+str(j)+"compare_to_back_"+str(count)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "front_to_back_number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])            
+                count+=1
+       
+            count = self.start
+            j += 1
+
+    #back-front   
+    def auto_barcode_intersection_sort_1(self,file_path_in,n,start):
+        path_in_front = self.file_path_in + "int_set_remove_few_front/"
+        path_in_back = self.file_path_in + "int_set_remove_few_back/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before(b-f)/new_info_"+str(j)+"/"
+            full_path = path_in_back + "back_int_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+        
+            while count < self.n:
+                full_path_read = path_in_front +"front_int_set_of_contig_"+str(count)+".txt"
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out +"back_"+str(j)+"compare_to_front_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+            
+    def auto_intersection_count_sort_1(self,file_path_in,n,start):
+        path_in_front = self.file_path_in + "bwa_dir_of_int_front/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_before(b-f)/new_info_"+str(j)+"/"
+            while count < self.n:
+                full_path = path_in_front + "front_barcode_dir_info" + str(count) + '.txt'
+                file = open(full_path, 'r').readlines()
+            
+                full_path_1 = path_out + "back_"+str(j)+"compare_to_front_"+str(count)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "back_to_front_number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+                
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]])            
+                count+=1
+       
+            count = self.start
+            j += 1
+
+def main(file_path,file_path_in,n,num,start):
+    my_class = barcode_info(file_path,file_path_in,n,num,start)
+    my_class.create_file(file_path_in,n)
+    my_class.get_front_barcode_info(file_path,file_path_in,n,num,start) 
+    my_class.get_back_barcode_info(file_path,file_path_in,start,n,num)
+    my_class.barcode_bwa_set(file_path_in,n,start)
+    my_class.barcode_bwa_set_1(file_path_in,n,start)
+    my_class.barcode_bwa_number(file_path_in,n,start)
+    my_class.barcode_bwa_number_1(file_path_in,n,start)
+    my_class.barcode_bwa_set_few(file_path_in,n,start)
+    my_class.barcode_bwa_set_few_1(file_path_in,n,start)
+    my_class.auto_barcode_intersection_sort(file_path_in,n,start)
+    my_class.auto_intersection_count_sort(file_path_in,n,start)
+    my_class.auto_barcode_intersection_sort_1(file_path_in,n,start)
+    my_class.auto_intersection_count_sort_1(file_path_in,n,start)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--file_path', type=str)
+parser.add_argument('--file_path_in', type=str)
+parser.add_argument('--n', type=int)
+parser.add_argument('--num',type=int)
+parser.add_argument('--start',type=int)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.file_path,args.file_path_in,args.n,args.num,args.start)    
+
+
+import argparse
+class F_B:    
+    def __init__(self,file_path_in,n,start,file_compare1,file_compare2,c):
+        self.file_path_in = file_path_in
+        self.n = n
+        self.start = start
+        self.file_compare1 = file_compare1
+        self.file_compare2 = file_compare2
+        self.c = c
+    
+    def mv_file(self,file_compare1,n,file_compare2):
+        import subprocess
+        subprocess.run(['sh','/bios-store5/lyt/auto_iterative_demo/auto_bf_demo/mv_file.sh',self.file_compare1,str(self.n-1),self.file_compare2])
+    
+    #filter_useless_info_for_each_front_and_back,when compare each back to front.
+    def combine_file(self,file_path_in,n,start):
+        import os 
+        import linecache
+        i = self.start
+        while i < self.n:
+            root = self.file_path_in + "compare_before(f-b)/new_info_"+str(i)+"/compare_to_contig"
+            file_names = os.listdir(root)
+        
+            file_ob_list = []
+            for file_name in file_names:
+                fileob = root + '/' + file_name
+                file_ob_list.append(fileob)
+  
+            data = []
+            for file_ob in file_ob_list:
+                line_num = 1
+                length_file = len(open(file_ob,"r").readlines())
+                while line_num <= length_file:
+                    line = linecache.getline(file_ob, line_num)
+                    data.append(line)
+                    line_num = line_num + 1
+                line_num = 1
+
+            f = open(self.file_path_in + "remove_occur_once(f-b)/sort_barcode_"+str(i)+".txt", 'w')
+            data_new = list(set(data))
+            for k in data_new:
+                f.write(k)
+            i += 1
+            f.close()
+    
+    def sort_useful_info(self,file_path_in,n,c):
+        import os
+        import linecache
+        from collections import Counter
+        root = self.file_path_in + "remove_occur_once(f-b)/"
+        file_names = os.listdir(root)
+    
+        file_ob_list = []
+        for file_name in file_names:
+            fileob = root + '/' + file_name
+            file_ob_list.append(fileob)
+    
+        data = [] 
+        for file_ob in file_ob_list:
+            line_num = 1
+            length_file = len(open(file_ob,"r").readlines())
+            while line_num <= length_file:
+                line = linecache.getline(file_ob, line_num)
+                data.append(line[:-1])
+                line_num = line_num + 1
+            line_num = 1
+    
+        result = Counter(data) 
+        result_new = {k:v for k, v in result.items() if v <= self.c}
+    
+        f=open(self.file_path_in + "barcode_int_set_all(f-b).txt", 'w')
+        for k, v in result_new.items():
+            f.writelines(str(k)+"\n")
+        f.close()
+    
+    #get_final_new_int_and_dir_front_barcode
+    def get_int_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "remove_occur_once(f-b)/"
+        path_in = self.file_path_in + "barcode_int_set_all(f-b).txt"
+        path_out = self.file_path_in + "final_int_barcode(f-b)/"
+        file_ref = open(path_in,"r").readlines()
+        count = self.start
+        while count < self.n:
+            full_path = path + "sort_barcode_" + str(count) + ".txt"
+            file_read = open(full_path, "r").readlines()
+            data = list(set(file_read)&set(file_ref))
+        
+            file_write=open(path_out+"final_front_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1
+            
+    def get_dir_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "final_int_barcode(f-b)/"
+        path_in = self.file_path_in + "bwa_dir_of_int_front/"
+        path_out = self.file_path_in + "final_dir_barcode(f-b)/"
+
+        count = self.start
+        while count < self.n:
+            file_1=open(path_in+"front_barcode_dir_info"+str(count)+".txt","r").readlines()
+            file_2=open(path+"final_front_set_of_contig_"+str(count)+".txt","r").readlines()
+            f = open(path_out+"final_front_barcode_dir_contig_"+str(count)+".txt","w")
+        
+            dirctory={}
+            for i in range(len(file_1)):
+                dirctory[file_1[i].split("\t")[0]]=file_1[i].split("\t")[1]
+                  
+            for line in file_2:
+                f.writelines(line[:-1]+"\t"+dirctory[line[:-1]])
+            f.close()  
+                      
+            count += 1
+
+    #get_final_new_int_and_dir_back_barcode
+    def get_useful_back_file(self,file_path_in,n,start):
+        back_original_path = self.file_path_in + "int_set_remove_few_back/"
+        ref_file = open(self.file_path_in + "barcode_int_set_all(f-b).txt","r").readlines()
+        path_out = self.file_path_in + "final_int_barcode(f-b)/"
+        count = self.start 
+        while count < self.n:
+            file_back_original = open(back_original_path+"back_int_set_of_contig_"+str(count)+".txt","r").readlines()
+            data = list(set(file_back_original)&set(ref_file))
+            file_write=open(path_out+"final_back_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1 
+                           
+    def sort_useless_back_info(self,file_path_in,c):
+        import os
+        import linecache
+        from collections import Counter
+        root = self.file_path_in + "final_int_barcode(f-b)/"
+        file_names = os.listdir(root)
+    
+        file_ob_list = []
+        for file_name in file_names:
+            if file_name.split("_")[1] == "back":
+                fileob = root + '/' + file_name
+                file_ob_list.append(fileob)
+    
+        data = [] 
+        for file_ob in file_ob_list:
+            line_num = 1
+            length_file = len(open(file_ob,"r").readlines())
+            while line_num <= length_file:
+                line = linecache.getline(file_ob, line_num)
+                data.append(line[:-1])
+                line_num = line_num + 1
+            line_num = 1
+    
+        result = Counter(data) 
+        result_new = {k:v for k, v in result.items() if 2 <=v<= self.c}
+    
+        f=open(self.file_path_in + "new_back_barcode_all_info.txt", 'w')
+        for k, v in result_new.items():
+            f.writelines(str(k)+"\n")
+        f.close()
+
+
+    def get_new_final_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "final_int_barcode(f-b)/"
+        path_in = self.file_path_in + "new_back_barcode_all_info.txt"
+        path_out = self.file_path_in + "new_back_info_of_each/"
+        file_ref = open(path_in,"r").readlines()
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_back_set_of_contig_" + str(count) + ".txt"
+            file_read = open(full_path, "r").readlines()
+            data = list(set(file_read)&set(file_ref))
+        
+            file_write=open(path_out+"final_back_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1
+
+    def get_new_dir_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "new_back_info_of_each/"
+        path_in = self.file_path_in + "bwa_dir_of_int_back/"
+
+        count = self.start
+        while count < n:
+            file_1=open(path_in+"back_barcode_dir_info"+str(count)+".txt","r").readlines()
+            file_2=open(path+"final_back_set_of_contig_"+str(count)+".txt","r").readlines()
+            f = open(path+"back_barcode_dir_contig_"+str(count)+".txt","w")
+        
+            dirctory={}
+            for i in range(len(file_1)):
+                dirctory[file_1[i].split("\t")[0]]=file_1[i].split("\t")[1]
+                  
+            for line in file_2:
+                f.writelines(line[:-1]+"\t"+dirctory[line[:-1]])
+            f.close()  
+                      
+            count += 1
+ 
+    #get_matrix
+    #front-back--compare_after
+    def auto_barcode_intersection_sort(self,file_path_in,n,start):
+        path_in_front = self.file_path_in + "final_int_barcode(f-b)/"
+        path_in_back = self.file_path_in + "new_back_info_of_each/"
+        j = self.start
+        count = self.start 
+        while j < self.n:
+            path_out = self.file_path_in + "compare_after(f-b)/new_info_"+str(j)+"/"
+            full_path = path_in_front + "final_front_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+        
+            while count < self.n:
+                full_path_read = path_in_back +"final_back_set_of_contig_"+str(count)+".txt"
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out +"front_"+str(j)+"compare_to_back_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+    #get_compare_after_dir_of_front/back_separately
+    def auto_intersection_count_sort(self,file_path_in,n,start):
+        path_in_back = self.file_path_in + "new_back_info_of_each/"
+        path_in_front = self.file_path_in + "final_dir_barcode(f-b)/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_after(f-b)/new_info_"+str(j)+"/"
+            file_f = open(path_in_front + "final_front_barcode_dir_contig_" + str(j) + ".txt","r").readlines()
+            while count < self.n:
+                full_path = path_in_back + "back_barcode_dir_contig_" + str(count) + '.txt'
+                file = open(full_path, 'r').readlines()
+             
+                full_path_1 = path_out + "front_"+str(j)+"compare_to_back_"+str(count)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "back_number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]]) 
+                    
+                path_number_1 = path_out + "front_number_dir_"+str(count)+".txt"
+                ans_1=open(path_number_1,"w")
+        
+                dirctory_1={}
+                for i in range(len(file_f)):
+                    dirctory_1[file_f[i].split("\t")[0]] = file_f[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans_1.writelines(line[:-1]+"\t"+dirctory_1[line[:-1]])                     
+                               
+                count+=1
+                       
+            count = self.start
+            j += 1
+          
+    #front_and_back
+    def auto_barcode_union(self,file_path_in,n,start):
+        import pandas as pd
+        path_in_front = self.file_path_in + "final_int_barcode(f-b)/"
+        path_in_back = self.file_path_in + "new_back_info_of_each/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "union_file_final_int(f-b)/new_info_"+str(j)+"/"
+            full_path = path_in_front + "final_front_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while count < self.n:
+                full_path_read = path_in_back +"final_back_set_of_contig_" + str(count) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)|set(file_read))
+                for i in barcode_same: 
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+   
+    def barcode_intersection_len(self,file_path_in,n,start):
+        import pandas as pd
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start
+        i = self.start-1
+        while i < self.n-1:
+            while count < (self.n):
+                path_in = self.file_path_in + "compare_after(f-b)/new_info_"+str(i+1)+"/"
+                full_path = path_in + "front_"+str(i+1)+"compare_to_back_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+
+
+    def barcode_union_len(self,file_path_in,n,start):
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start
+        i = self.start-1
+        while i < self.n -1:
+            while count < (self.n):
+                path_in = self.file_path_in + "union_file_final_int(f-b)/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+        
+    def get_jaccard(self,file_path_in,n,start):
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        info_1 = self.barcode_intersection_len(file_path_in,n,start)
+        info_2 = self.barcode_union_len(file_path_in,n,start)
+        info_1_array=np.array(info_1)
+        info_2_array=np.array(info_2)
+        df_1 = pd.DataFrame(info_1_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_2 = pd.DataFrame(info_2_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3 = df_1 / df_2
+        df_3_pd= pd.DataFrame(df_3, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3_pd.to_csv(self.file_path_in + "manually_get_jaccard_matrix(f-b).csv",header = True,index=True)
+
+
+    #get_sorensen_dice
+    #front_to_back
+    def all_count_of_contig_each(self,file_path_in,n,start):
+        import pandas as pd
+        import numpy as np
+        path_front = self.file_path_in + "final_dir_barcode(f-b)/"
+        path_back = self.file_path_in + "new_back_info_of_each/"
+        total_all_info = [[] for _ in range(self.start,self.n)]
+        count = self.start
+        j = self.start-1
+        while j < self.n-1:
+            while count < (self.n):
+                path_A = path_front + "final_front_barcode_dir_contig_" + str(j+1) +".txt"
+                path_B = path_back + "back_barcode_dir_contig_" + str(count) +".txt"
+                file_A = open(path_A,"r").readlines()
+                file_B = open(path_B,"r").readlines()
+                sum_barcode_A = 0
+                for i in range(len(file_A)):
+                    sum_barcode_A += int(file_A[i].split("\t")[1][:-1])
+                sum_barcode_B = 0
+                for i in range(len(file_B)):
+                    sum_barcode_B += int(file_B[i].split("\t")[1][:-1])
+                sum_bar = sum_barcode_A+sum_barcode_B
+                total_all_info[j-self.start+1].append(sum_bar)
+                count += 1
+            count = self.start
+            j += 1
+        return total_all_info
+        
+     
+    def barcode_total_number(self,file_path_in,n,start):
+        count = self.start
+        j = self.start-1 
+        total_barcode_number=[[] for _ in range(self.start,self.n)]
+        while j < self.n-1:                
+            while count < (self.n):
+                path_in = self.file_path_in + "compare_after(f-b)/new_info_"+str(j+1)+"/"
+                path_number = path_in + "back_number_dir_"+str(count)+".txt"
+                file_b = open(path_number,"r").readlines()
+                
+                sum_barcode=0
+                for i in range(len(file_b)):
+                    sum_barcode += int(file_b[i].split("\t")[1][:-1])
+                    
+                path_number_f = path_in + "front_number_dir_"+str(count)+".txt"
+                file_f = open(path_number_f,"r").readlines()
+                sum = 0
+                for m in range(len(file_f)):
+                    sum += int(file_f[m].split("\t")[1][:-1])
+                    
+                total_barcode_number[j-self.start+1].append(sum+sum_barcode)                    
+                count+=1   
+
+            count = self.start
+            j += 1
+    
+        return total_barcode_number
+
+
+    def get_sorensen_dice(self,file_path_in,n,start):
+        import pandas as pd
+        import numpy as np       
+        total_all_info_list = self.all_count_of_contig_each(file_path_in,n,start)
+        total_all_info_np=np.array(total_all_info_list)
+        total_all_pd = pd.DataFrame(total_all_info_np,columns=["contig"+str(i) for i in range(self.start,self.n)], index=["contig"+str(i) for i in range(self.start,self.n)])
+        total_all_pd.to_csv(self.file_path_in + "add_count_barcode_matrix(f-b).csv",index = True, header = True)    
+    
+        total_barcode_list = self.barcode_total_number(file_path_in,n,start)
+        total_num=np.array(total_barcode_list)
+        total_num_pd = pd.DataFrame(total_num, columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+                         
+        Sorensen_Dice_rate=pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                Sorensen_Dice_rate.loc["contig"+str(i),"contig"+str(j)] = total_num_pd.loc["contig"+str(i),"contig"+str(j)]/total_all_pd.loc["contig"+str(i),"contig"+str(j)]
+        Sorensen_Dice_rate.to_csv(self.file_path_in + "Sorensen_Dice_rate_matrix_more(f-b).csv",index = True, header = True)        
+
+            
+def main(file_path_in,n,start,file_compare1,file_compare2,c):
+    my_class = F_B(file_path_in,n,start,file_compare1,file_compare2,c)
+    my_class.mv_file(file_compare1,n,file_compare2)
+    my_class.combine_file(file_path_in,n,start)
+    my_class.sort_useful_info(file_path_in,n,c)
+    my_class.get_int_barcode_set(file_path_in,n,start)
+    my_class.get_dir_barcode_set(file_path_in,n,start)
+    my_class.get_useful_back_file(file_path_in,n,start)
+    my_class.sort_useless_back_info(file_path_in,c)
+    my_class.get_new_final_barcode_set(file_path_in,n,start)
+    my_class.get_new_dir_barcode_set(file_path_in,n,start)    
+    my_class.auto_barcode_intersection_sort(file_path_in,n,start)
+    my_class.auto_intersection_count_sort(file_path_in,n,start)    
+    my_class.auto_barcode_union(file_path_in,n,start)
+    my_class.barcode_intersection_len(file_path_in,n,start)
+    my_class.barcode_union_len(file_path_in,n,start)
+    my_class.get_jaccard(file_path_in,n,start)
+    my_class.all_count_of_contig_each(file_path_in,n,start)
+    my_class.barcode_total_number(file_path_in,n,start)
+    my_class.get_sorensen_dice(file_path_in,n,start)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--file_path_in', type=str)
+parser.add_argument('--n', type=int)
+parser.add_argument('--start', type=int)
+parser.add_argument('--file_compare1',type=str)
+parser.add_argument('--file_compare2',type=str)
+parser.add_argument('--c',type=int)
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.file_path_in,args.n,args.start,args.file_compare1,args.file_compare2,args.c)    
+
+import argparse
+class B_F:    
+    def __init__(self,file_path_in,n,start,c):
+        self.file_path_in = file_path_in
+        self.n = n
+        self.start = start
+        self.c = c
+    
+    #filter_useless_info_for_each_front_and_back,when compare each front to back.
+    def combine_file(self,file_path_in,n,start):
+        import os 
+        import linecache
+        i = self.start
+        while i < self.n:
+            root = self.file_path_in + "compare_before(b-f)/new_info_"+str(i)+"/compare_to_contig"
+            file_names = os.listdir(root)
+        
+            file_ob_list = []
+            for file_name in file_names:
+                fileob = root + '/' + file_name
+                file_ob_list.append(fileob)
+  
+            data = []
+            for file_ob in file_ob_list:
+                line_num = 1
+                length_file = len(open(file_ob,"r").readlines())
+                while line_num <= length_file:
+                    line = linecache.getline(file_ob, line_num)
+                    data.append(line)
+                    line_num = line_num + 1
+                line_num = 1
+
+            f = open(self.file_path_in + "remove_occur_once(b-f)/sort_barcode_"+str(i)+".txt", 'w')
+            data_new = list(set(data))
+            for k in data_new:
+                f.write(k)
+            i += 1
+            f.close()
+    
+    def sort_useful_info(self,file_path_in,n,c):
+        import os
+        import linecache
+        from collections import Counter
+        root = self.file_path_in + "remove_occur_once(b-f)/"
+        file_names = os.listdir(root)
+    
+        file_ob_list = []
+        for file_name in file_names:
+            fileob = root + '/' + file_name
+            file_ob_list.append(fileob)
+    
+        data = [] 
+        for file_ob in file_ob_list:
+            line_num = 1
+            length_file = len(open(file_ob,"r").readlines())
+            while line_num <= length_file:
+                line = linecache.getline(file_ob, line_num)
+                data.append(line[:-1])
+                line_num = line_num + 1
+            line_num = 1
+    
+        result = Counter(data) 
+        result_new = {k:v for k, v in result.items() if v <= self.c}
+    
+        f=open(self.file_path_in + "barcode_int_set_all(b-f).txt", 'w')
+        for k, v in result_new.items():
+            f.writelines(str(k)+"\n")
+        f.close()
+    
+    #get_final_new_int_and_dir_back_barcode
+    def get_int_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "remove_occur_once(b-f)/"
+        path_in = self.file_path_in + "barcode_int_set_all(b-f).txt"
+        path_out = self.file_path_in + "final_int_barcode(b-f)/"
+        file_ref = open(path_in,"r").readlines()
+        count = self.start
+        while count < self.n:
+            full_path = path + "sort_barcode_" + str(count) + ".txt"
+            file_read = open(full_path, "r").readlines()
+            data = list(set(file_read)&set(file_ref))
+        
+            file_write=open(path_out+"final_back_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1
+            
+    def get_dir_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "final_int_barcode(b-f)/"
+        path_in = self.file_path_in + "bwa_dir_of_int_back/"
+        path_out = self.file_path_in + "final_dir_barcode(b-f)/"
+
+        count = self.start
+        while count < self.n:
+            file_1=open(path_in+"back_barcode_dir_info"+str(count)+".txt","r").readlines()
+            file_2=open(path+"final_back_set_of_contig_"+str(count)+".txt","r").readlines()
+            f = open(path_out+"final_back_barcode_dir_contig_"+str(count)+".txt","w")
+        
+            dirctory={}
+            for i in range(len(file_1)):
+                dirctory[file_1[i].split("\t")[0]]=file_1[i].split("\t")[1]
+                  
+            for line in file_2:
+                f.writelines(line[:-1]+"\t"+dirctory[line[:-1]])
+            f.close()  
+                      
+            count += 1
+
+    #get_final_new_int_and_dir_front_barcode
+    def get_useful_back_file(self,file_path_in,n,start):
+        back_original_path = self.file_path_in + "int_set_remove_few_front/"
+        ref_file = open(self.file_path_in + "barcode_int_set_all(b-f).txt","r").readlines()
+        path_out = self.file_path_in + "final_int_barcode(b-f)/"
+        count = self.start 
+        while count < self.n:
+            file_back_original = open(back_original_path+"front_int_set_of_contig_"+str(count)+".txt","r").readlines()
+            data = list(set(file_back_original)&set(ref_file))
+            file_write=open(path_out+"final_front_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1 
+                           
+    def sort_useless_back_info(self,file_path_in,c):
+        import os
+        import linecache
+        from collections import Counter
+        root = self.file_path_in + "final_int_barcode(b-f)/"
+        file_names = os.listdir(root)
+    
+        file_ob_list = []
+        for file_name in file_names:
+            if file_name.split("_")[1] == "front":
+                fileob = root + '/' + file_name
+                file_ob_list.append(fileob)
+    
+        data = [] 
+        for file_ob in file_ob_list:
+            line_num = 1
+            length_file = len(open(file_ob,"r").readlines())
+            while line_num <= length_file:
+                line = linecache.getline(file_ob, line_num)
+                data.append(line[:-1])
+                line_num = line_num + 1
+            line_num = 1
+    
+        result = Counter(data) 
+        result_new = {k:v for k, v in result.items() if 2 <=v<= self.c}
+    
+        f=open(self.file_path_in + "new_front_barcode_all_info.txt", 'w')
+        for k, v in result_new.items():
+            f.writelines(str(k)+"\n")
+        f.close()
+
+
+    def get_new_final_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "final_int_barcode(b-f)/"
+        path_in = self.file_path_in + "new_front_barcode_all_info.txt"
+        path_out = self.file_path_in + "new_front_info_of_each/"
+        file_ref = open(path_in,"r").readlines()
+        count = self.start
+        while count < self.n:
+            full_path = path + "final_front_set_of_contig_" + str(count) + ".txt"
+            file_read = open(full_path, "r").readlines()
+            data = list(set(file_read)&set(file_ref))
+        
+            file_write=open(path_out+"final_front_set_of_contig_"+str(count)+".txt","w")
+            for i in data:
+                file_write.write(i)
+            file_write.close()
+        
+            count += 1
+
+    def get_new_dir_barcode_set(self,file_path_in,n,start):
+        path = self.file_path_in + "new_front_info_of_each/"
+        path_in = self.file_path_in + "bwa_dir_of_int_front/"
+
+        count = self.start
+        while count < n:
+            file_1=open(path_in+"front_barcode_dir_info"+str(count)+".txt","r").readlines()
+            file_2=open(path+"final_front_set_of_contig_"+str(count)+".txt","r").readlines()
+            f = open(path+"front_barcode_dir_contig_"+str(count)+".txt","w")
+        
+            dirctory={}
+            for i in range(len(file_1)):
+                dirctory[file_1[i].split("\t")[0]]=file_1[i].split("\t")[1]
+                  
+            for line in file_2:
+                f.writelines(line[:-1]+"\t"+dirctory[line[:-1]])
+            f.close()  
+                      
+            count += 1
+ 
+    #get_matrix
+    #back--front--compare_after
+    def auto_barcode_intersection_sort(self,file_path_in,n,start):
+        path_in_front = self.file_path_in + "final_int_barcode(b-f)/"
+        path_in_back = self.file_path_in + "new_front_info_of_each/"
+        j = self.start
+        count = self.start 
+        while j < self.n:
+            path_out = self.file_path_in + "compare_after(b-f)/new_info_"+str(j)+"/"
+            full_path = path_in_front + "final_back_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+        
+            while count < self.n:
+                full_path_read = path_in_back +"final_front_set_of_contig_"+str(count)+".txt"
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out +"back_"+str(j)+"compare_to_front_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)&set(file_read))
+                for i in barcode_same:
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+
+    #get_compare_after_dir_of_front/back_separately
+    def auto_intersection_count_sort(self,file_path_in,n,start):
+        path_in_front = self.file_path_in + "new_front_info_of_each/"
+        path_in_back = self.file_path_in + "final_dir_barcode(b-f)/"
+        count = self.start
+        j = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "compare_after(b-f)/new_info_"+str(j)+"/"
+            file_b = open(path_in_back + "final_back_barcode_dir_contig_" + str(j) + ".txt","r").readlines()
+            while count < self.n:
+                full_path = path_in_front + "front_barcode_dir_contig_" + str(count) + '.txt'
+                file = open(full_path, 'r').readlines()
+             
+                full_path_1 = path_out + "back_"+str(j)+"compare_to_front_"+str(count)+".txt"
+                file_read=open(full_path_1,"r").readlines()
+            
+                path_number = path_out + "front_number_dir_"+str(count)+".txt"
+                ans=open(path_number,"w")
+        
+                dirctory={}
+                for i in range(len(file)):
+                    dirctory[file[i].split("\t")[0]]=file[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans.writelines(line[:-1]+"\t"+dirctory[line[:-1]]) 
+                    
+                path_number_1 = path_out + "back_number_dir_"+str(count)+".txt"
+                ans_1=open(path_number_1,"w")
+        
+                dirctory_1={}
+                for i in range(len(file_b)):
+                    dirctory_1[file_b[i].split("\t")[0]] = file_b[i].split("\t")[1]
+                  
+                for line in file_read:
+                    ans_1.writelines(line[:-1]+"\t"+dirctory_1[line[:-1]])                     
+                               
+                count+=1
+                       
+            count = self.start
+            j += 1
+          
+    #back_and_front
+    def auto_barcode_union(self,file_path_in,n,start):
+        import pandas as pd
+        path_in_front = self.file_path_in + "final_int_barcode(b-f)/"
+        path_in_back = self.file_path_in + "new_front_info_of_each/"
+        j = self.start
+        count = self.start
+        while j < self.n:
+            path_out = self.file_path_in + "union_file_final_int(b-f)/new_info_"+str(j)+"/"
+            full_path = path_in_front + "final_back_set_of_contig_"+str(j)+".txt"
+            file = open(full_path, 'r').readlines()
+            while count < self.n:
+                full_path_read = path_in_back +"final_front_set_of_contig_" + str(count) + '.txt'
+                file_read = open(full_path_read,"r").readlines()
+                full_path_write = path_out + "compare_to_contige_"+str(count)+".txt"
+                file_write=open(full_path_write,"w")
+                barcode_same=list(set(file)|set(file_read))
+                for i in barcode_same: 
+                    file_write.writelines(i)
+                count+=1
+            
+            count = self.start
+            j += 1
+   
+    def barcode_intersection_len(self,file_path_in,n,start):
+        import pandas as pd
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start
+        i = self.start-1
+        while i < self.n-1:
+            while count < (self.n):
+                path_in = self.file_path_in + "compare_after(b-f)/new_info_"+str(i+1)+"/"
+                full_path = path_in + "back_"+str(i+1)+"compare_to_front_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+
+
+    def barcode_union_len(self,file_path_in,n,start):
+        total_barcode_catagory=[[] for _ in range(self.start,self.n)]
+        count = self.start
+        i = self.start-1
+        while i < self.n -1:
+            while count < (self.n):
+                path_in = self.file_path_in + "union_file_final_int(b-f)/new_info_"+str(i+1)+"/"
+                full_path = path_in + "compare_to_contige_"+str(count)+".txt"
+                file_read=open(full_path,"r").readlines()
+                total_barcode_catagory[i-self.start+1].append(len(file_read))
+                count += 1
+            count = self.start
+            i += 1
+        return total_barcode_catagory
+        
+    def get_jaccard(self,file_path_in,n,start):
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        info_1 = self.barcode_intersection_len(file_path_in,n,start)
+        info_2 = self.barcode_union_len(file_path_in,n,start)
+        info_1_array=np.array(info_1)
+        info_2_array=np.array(info_2)
+        df_1 = pd.DataFrame(info_1_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_2 = pd.DataFrame(info_2_array, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3 = df_1 / df_2
+        df_3_pd= pd.DataFrame(df_3, columns=["contig"+str(i) for i in range(self.start, self.n)],index=["contig"+str(i) for i in range(self.start, self.n)])
+        df_3_pd.to_csv(self.file_path_in + "manually_get_jaccard_matrix(b-f).csv",header = True,index=True)
+
+
+    #get_sorensen_dice
+    #front_to_back
+    def all_count_of_contig_each(self,file_path_in,n,start):
+        import pandas as pd
+        import numpy as np
+        path_front = self.file_path_in + "final_dir_barcode(b-f)/"
+        path_back = self.file_path_in + "new_front_info_of_each/"
+        total_all_info = [[] for _ in range(self.start,self.n)]
+        count = self.start
+        j = self.start-1
+        while j < self.n-1:
+            while count < (self.n):
+                path_A = path_front + "final_back_barcode_dir_contig_" + str(j+1) +".txt"
+                path_B = path_back + "front_barcode_dir_contig_" + str(count) +".txt"
+                file_A = open(path_A,"r").readlines()
+                file_B = open(path_B,"r").readlines()
+                sum_barcode_A = 0
+                for i in range(len(file_A)):
+                    sum_barcode_A += int(file_A[i].split("\t")[1][:-1])
+                sum_barcode_B = 0
+                for i in range(len(file_B)):
+                    sum_barcode_B += int(file_B[i].split("\t")[1][:-1])
+                sum_bar = sum_barcode_A+sum_barcode_B
+                total_all_info[j-self.start+1].append(sum_bar)
+                count += 1
+            count = self.start
+            j += 1
+        return total_all_info
+        
+     
+    def barcode_total_number(self,file_path_in,n,start):
+        count = self.start
+        j = self.start-1 
+        total_barcode_number=[[] for _ in range(self.start,self.n)]
+        while j < self.n-1:                
+            while count < (self.n):
+                path_in = self.file_path_in + "compare_after(b-f)/new_info_"+str(j+1)+"/"
+                path_number = path_in + "front_number_dir_"+str(count)+".txt"
+                file_b = open(path_number,"r").readlines()
+                
+                sum_barcode=0
+                for i in range(len(file_b)):
+                    sum_barcode += int(file_b[i].split("\t")[1][:-1])
+                
+                path_number_f = path_in + "back_number_dir_"+str(count)+".txt"
+                file_f = open(path_number_f,"r").readlines()
+                sum = 0
+                for m in range(len(file_f)):
+                    sum += int(file_f[m].split("\t")[1][:-1])
+                                       
+                total_barcode_number[j-self.start+1].append(sum+sum_barcode)                    
+                count+=1   
+
+            count = self.start
+            j += 1
+    
+        return total_barcode_number
+
+
+    def get_sorensen_dice(self,file_path_in,n,start):
+        import pandas as pd
+        import numpy as np       
+        total_all_info_list = self.all_count_of_contig_each(file_path_in,n,start)
+        total_all_info_np=np.array(total_all_info_list)
+        total_all_pd = pd.DataFrame(total_all_info_np,columns=["contig"+str(i) for i in range(self.start,self.n)], index=["contig"+str(i) for i in range(self.start,self.n)])
+        total_all_pd.to_csv(self.file_path_in + "add_count_barcode_matrix(b-f).csv",index = True, header = True)    
+    
+        total_barcode_list = self.barcode_total_number(file_path_in,n,start)
+        total_num=np.array(total_barcode_list)
+        total_num_pd = pd.DataFrame(total_num, columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+                         
+        Sorensen_Dice_rate=pd.DataFrame(columns=["contig"+str(i) for i in range(self.start, self.n)], index=["contig"+str(i) for i in range(self.start, self.n)])
+        for i in range(self.start,self.n):
+            for j in range(self.start,self.n):
+                Sorensen_Dice_rate.loc["contig"+str(i),"contig"+str(j)] = total_num_pd.loc["contig"+str(i),"contig"+str(j)]/total_all_pd.loc["contig"+str(i),"contig"+str(j)]
+        Sorensen_Dice_rate.to_csv(self.file_path_in + "Sorensen_Dice_rate_matrix_more(b-f).csv",index = True, header = True)        
+
+            
+def main(file_path_in,n,start,c):
+    my_class = B_F(file_path_in,n,start,c)
+    my_class.combine_file(file_path_in,n,start)
+    my_class.sort_useful_info(file_path_in,n,c)
+    my_class.get_int_barcode_set(file_path_in,n,start)
+    my_class.get_dir_barcode_set(file_path_in,n,start)
+    my_class.get_useful_back_file(file_path_in,n,start)
+    my_class.sort_useless_back_info(file_path_in,c)
+    my_class.get_new_final_barcode_set(file_path_in,n,start)
+    my_class.get_new_dir_barcode_set(file_path_in,n,start)    
+    my_class.auto_barcode_intersection_sort(file_path_in,n,start)
+    my_class.auto_intersection_count_sort(file_path_in,n,start)    
+    my_class.auto_barcode_union(file_path_in,n,start)
+    my_class.barcode_intersection_len(file_path_in,n,start)
+    my_class.barcode_union_len(file_path_in,n,start)
+    my_class.get_jaccard(file_path_in,n,start)
+    my_class.all_count_of_contig_each(file_path_in,n,start)
+    my_class.barcode_total_number(file_path_in,n,start)
+    my_class.get_sorensen_dice(file_path_in,n,start)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--file_path_in', type=str)
+parser.add_argument('--n', type=int)
+parser.add_argument('--start', type=int)
+parser.add_argument('--c',type=int)
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.file_path_in,args.n,args.start,args.c)    
+
+（5）得到label_list(jaccard).txt：
+import argparse
+class Feature_extract:
+    def __init__(self,file_path,start):
+        self.file_path = file_path
+        self.start = start 
+
+    def get_pair_info(self,file_path,start):
+        import pandas as pd
+        total_num_read_pd=pd.read_csv(self.file_path + "Sorensen_Dice_rate_matrix_more.csv",index_col= 0)
+        import numpy as np
+        total_num_read_np = np.array(total_num_read_pd)
+        
+        max_rate=[]
+        for i in range(len(total_num_read_np)):
+            total_sort=total_num_read_pd.iloc[i].sort_values(na_position='first')
+            number_1=total_sort[-2]
+            index_ge=total_sort[total_sort.values==number_1].index
+            max_rate.append(("contig"+str(i+self.start)+"\t"+str(index_ge[0]),number_1))
+            number_2=total_sort[-3]
+            index_ge_2 = total_sort[total_sort.values==number_2].index
+            max_rate.append(("contig"+str(i+self.start)+"\t"+str(index_ge_2[0]),number_2))                       
+    
+        output_max=open(self.file_path + "max_contig_of_Sorensen_Dice.txt","w")
+        for x, y in max_rate:
+            data=x+"\t"+str(y)+"\n"
+            output_max.writelines(data)
+        output_max.close()
+
+        input_max=open(self.file_path + "max_contig_of_Sorensen_Dice.txt","r").readlines()
+        out = open(self.file_path + "max_contig_of_Sorensen_Dice_new.txt","w")
+        for i in range(len(input_max)):
+            if float(input_max[i].split("\t")[2][:-1]) != 0.0:
+                out.writelines(input_max[i])
+        out.close()      
+    
+    def feature_extract(self,file_path):
+        import pandas as pd
+        data_in = open(self.file_path + "max_contig_of_Sorensen_Dice_new.txt","r").readlines()    
+        pd_5 = pd.read_csv(self.file_path + "fb_and_bf_list/manually_get_jaccard_matrix(b-f).csv",index_col = 0)
+        pd_6 = pd.read_csv(self.file_path + "bb_list/manually_get_jaccard_matrix(b-b).csv",index_col =0)
+        pd_7 = pd.read_csv(self.file_path + "ff_list/manually_get_jaccard_matrix(f-f).csv",index_col = 0)
+        pd_8 = pd.read_csv(self.file_path + "fb_and_bf_list/manually_get_jaccard_matrix(f-b).csv",index_col =0)
+
+        data_out = open(self.file_path + "label_with_orientation_only_jaccard.txt","w")
+
+        i = 0
+        while i < len(data_in):
+            label_1 = data_in[i].split("\t")[0]
+            label_2 = data_in[i].split("\t")[1]
+            
+            value_1 = str(float(pd_5.loc[label_1,label_2]))
+            value_2 = str(float(pd_6.loc[label_1,label_2]))
+            value_3 = str(float(pd_7.loc[label_1,label_2]))
+            value_4 = str(float(pd_8.loc[label_1,label_2]))
+            data_out.writelines(data_in[i].split("\n")[0]+"\t"+value_1+"\t"+value_2+"\t"+value_3+"\t"+value_4+"\n")
+            i += 1
+        data_out.close()
+        
+    def get_label(self,file_path):
+        data = open(self.file_path + "label_with_orientation_only_jaccard.txt","r").readlines() 
+        data_out = open(self.file_path + "label_list(jaccard).txt","w")
+        import pandas as pd
+        for line in data:
+            score = line.split()[2]
+            list_i = line.split()[3:]
+            label = list_i.index(max(list_i))
+            data_out.writelines(line.split("\t")[0]+"_"+line.split("\t")[1]+"\t"+score+"\t"+str(label)+"\n")
+        data_out.close()
+
+
+def main(file_path,start):
+    my_class = Feature_extract(file_path,start)
+    my_class.get_pair_info(file_path,start)
+    my_class.feature_extract(file_path)
+    my_class.get_label(file_path)
+
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--file_path', type=str)
+parser.add_argument("--start",type=int)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.file_path,args.start)
+
+（6）得到延申需要的blast结果：#todo 并行
+#获取结果
+ref_full="/bios-store5/lyt/D1_L31/D1/spades_result_unique/assembly.fasta"
+mkdir /bios-store5/lyt/D1_L31/D1/spades_result_unique_new/get_different_contig/
+path="/bios-store5/lyt/D1_L31/D1/spades_result_unique_new/get_different_contig"
+mkdir /bios-store5/lyt/D1_L31/D1/blast_connection/
+path_1='/bios-store5/lyt/D1_L31/D1/blast_connection'
+cd /bios-store5/lyt/D1_L31/D1/blast_connection/
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read line      
+do
+   echo ${line}
+   samtools faidx ${ref_full} ${line} > ${path}/assembly_${line}.fasta 
+   mkdir blast_${line}
+   makeblastdb -in ${path}/assembly_${line}.fasta -dbtype nucl -parse_seqids -out ${path}/contig_${line}_index
+done
+
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read a
+do
+    cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read b
+    do
+        blastn -query ${path}/assembly_${b}.fasta -db ${path}/contig_${a}_index -outfmt 6 -evalue 1e-6 -num_threads 6 -out ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt -word_size 7
+    done
+done
+
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read a
+do 
+    cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read b
+    do
+        if [[ -f ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt && -s ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt ]];then
+          echo "the file is not none"
+        else
+          rm -f ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt
+        fi
+    done
+done
+
+mkdir /bios-store5/lyt/D1_L31/D1/blast_connection/blast_all_info/
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read line      
+do
+   echo ${line}
+   cat ${path_1}/blast_${line}/*.txt > ${path_1}/blast_all_info/all_${line}.txt
+done
+
+{
+#过滤结果（可以省略）
+i = 1
+while i <= 56:
+    data = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_info/all_"+str(i)+".txt","r").readlines()
+    data_out = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_filter_info/all_"+str(i)+".txt","w")
+    for line in data:
+        if float(line.split("\t")[2])>= 95.00:
+            data_out.writelines(line)
+    data_out.close()
+    i += 1
+
+name_list = [57,58,61,62,65,67,68,70,71,72,77,79,82,85,87,92,93,97,98,99,101,103,104,107,110,124,134,136,138,146,148,153,162,170,171,190,194,201,202,248,275 276,423,431,441,570,586,621,642,732,752,952,998]
+for i in name_list:
+    data = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_info/all_"+str(i)+".txt","r").readlines()
+    data_out = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_filter_info/all_"+str(i)+".txt","w")
+    for line in data:
+        if float(line.split("\t")[2])>= 95.00:
+            data_out.writelines(line)
+    data_out.close()
+
+
+i = 1020
+while i <= 1183:
+    data = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_info/all_"+str(i)+".txt","r").readlines()
+    data_out = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_filter_info/all_"+str(i)+".txt","w")
+    for line in data:
+        if float(line.split("\t")[2])>= 95.00:
+            data_out.writelines(line)
+    data_out.close()
+    i += 1
+   
+}
+（7）获得plasmids：
+Plasflow软件
+filter_sequences_by_length.pl -input input_dataset.fasta -output filtered_output.fasta -thresh sequence_length_threshold
+
+PlasFlow.py --input Citrobacter_freundii_strain_CAV1321_scaffolds.fasta --output test.plasflow_predictions.tsv --threshold 0.7
