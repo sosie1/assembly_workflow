@@ -1,6 +1,7 @@
 ### 依赖
 svg-> pdf : pip3 install svglib  
 writeSvg : pip3 install svgwrite
+### tips
 图像长短
 线粗细up 窄一些 
 重合长度：32 比质量ok
@@ -45,8 +46,17 @@ plasmids 小样本延伸要用 ok
 
 短长 短长 不冲突 优先级top 45样本eg ok
 
-粗略图 单独一个长contig < 8000 
+粗略图 单独一个长contig < 8000 ok
 重复序列 < 10000 直接不考虑32这个样本
+
+pip3 install --user --upgrade cutadapt
+todo： bin移动到目的bin路径
+
+todo: fastqc jdk
+bwa
+samtools
+
+
 
 
 

@@ -1,7 +1,7 @@
 import os
 import sys
+import subprocess
 class DataProcessUtil:
-
     def __init__(self,path):
         self.path=path
         self.headContigs = {}
@@ -19,6 +19,7 @@ class DataProcessUtil:
         self.contigNextBps = {}
         self.seriesLength={}
         self.repeatLongContigs=[]
+        self.ignoreContigs=[]
 
         #self.plasmids_plasmids=[]
     def readPlasmids(self):
@@ -57,7 +58,6 @@ class DataProcessUtil:
         print('------')
         #print(self.tinyContigs[id2].series[2873-1:2949])
         print(self.reverseSeries(self.tinyContigs[id2].series[0:2949]))
-
     def  reverseSeries(self,series):
         temp = ''
 
@@ -110,8 +110,6 @@ class DataProcessUtil:
                 for line in lines:
                     self.repeatLongContigs.append(int(line))
         print("读取可重复长序列信息over")
-
-
     def readDepthTable(self,length_threshold):
         self.generateFilter()
         if os.path.exists(self.path+'/output_with_depth_table.txt'):
@@ -133,7 +131,10 @@ class DataProcessUtil:
                                 self.contigs[idStr]=Contig(idStr,length)
                             if(int(idStr) in self.repeatLongContigs):
                                 print("添加重复序列:"+idStr)
-                                self.tinyContigs[idStr] = Contig(idStr, length)
+                                if length < 10000:
+                                    self.ignoreContigs.append(int(idStr))
+                                else:
+                                    self.tinyContigs[idStr] = Contig(idStr, length)
                             #print(self.contigs)
 
                         else:
@@ -256,6 +257,9 @@ class DataProcessUtil:
                 nums=line.split('\t')
                 directionPair=nums[0].replace('contig','')
                 directionPairNums = directionPair.split('_')
+                if(int(directionPairNums[0]) in self.ignoreContigs or
+                int(directionPairNums[1]) in self.ignoreContigs):
+                    continue
                 direction=nums[2].replace('\n','')
                 score=float(nums[1])
                 if(directionPairNums[0] in self.contigs and directionPairNums[1] in self.contigs):
@@ -479,6 +483,11 @@ class DataProcessUtil:
             if(str(i)) in self.headContigs:
                 if self.contigs[str(i)].next==None and self.contigs[str(i)].pre==None:
                     del self.headContigs[str(i)]
+        for i in self.headContigs:
+            if(self.contigs[i].length<8000and self.contigs[i].next==None and self.contigs[i].pre==None):
+                del self.headContigs[i]
+
+
         # contigHead = self.contigs['1']
         # contigX = contigHead.next
         # contigPre = contigHead
