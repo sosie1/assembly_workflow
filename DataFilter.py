@@ -8,7 +8,7 @@ class bwa_and_separate:
 
     def bwa_result(self):
         subprocess.run(
-            'sh', './scripts/bwa_and_separate.sh '+self.out_path
+            'sh ./scripts/bwa_and_separate.sh '+self.out_path
              ,shell=True)
 
     def separate_and_clear(self, n):
@@ -20,7 +20,7 @@ class bwa_and_separate:
             data_out.writelines(name + "\t" + cov)
         data_out.close()
 
-        data = open(self.out_path + "spades_result_unique/coverage_pair_info.txt", "r").readlines()
+        data = open(self.out_path + "spades_result_unique_new/coverage_pair_info.txt", "r").readlines()
         cov_whole = 0
         index = 0
         while index < 10:
@@ -31,13 +31,13 @@ class bwa_and_separate:
         for i in range(0, 10):
             cov_list.append(float(data[index].split("\t")[1][:-1]))
 
-        avg_cov = np.mean(cov_list)
-        std_cov = np.std(cov_list)
+        #avg_cov = np.mean(cov_list)
+        #std_cov = np.std(cov_list)
         # this step can use other method:
-        # low = cov_whole//30
-        # high = cov_whole//5
-        low = avg_cov - 3 * std_cov
-        high = avg_cov + 3 * std_cov
+        low = cov_whole//20
+        high = cov_whole*3//5
+        #low = avg_cov - 3 * std_cov
+        #high = avg_cov + 3 * std_cov
         print("low_coverage_threshold:" + str(low), "high_coverage_threshold:" + str(high))
 
         name_list = []
@@ -67,6 +67,26 @@ class bwa_and_separate:
         for e in name_list:
             efficient_id.writelines(str(e) + "\n")
         efficient_id.close()
+
+        length = open(self.out_path + "spades_result_unique_new/output_with_depth_table.txt", "r").readlines()
+
+                # this step need file(prediction_plasmid_plasflow.txt)--so we need run plasflow
+        # new_code
+        large_contig_name = []
+        for i in range(1, n):
+            large_contig_name.append(length[i].split("\t")[0].split("_")[1])
+        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", "r").readlines()
+        plasmids_name = []
+        for line in plasmids_data:
+            plasmids_name.append(line.split("_")[1])
+
+        name_interaction = list(set(duplication_list) & set(large_contig_name))
+        name_inter_final = list(set(name_interaction) - set(plasmids_name))
+
+        large_contig_txt = open(self.out_path + "duplicated_long_contigs_name.txt", "w")
+        for name in name_inter_final:
+            large_contig_txt.writelines(name + "\n")
+        large_contig_txt.close()
 
         data = open(self.out_path + "spades_result_unique_new/full_final_unique_out.info.txt", "r").readlines()
         j = 1

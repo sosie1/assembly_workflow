@@ -8,8 +8,9 @@ import GraphicalProcess
 import argparse
 import os
 
-from MatrixAll import Barcode_info
-from MatrixGeneration import back_info, barcode_info, F_B, B_F, front_info
+from all_demo import Barcode_info
+from MatrixGeneration import back_info, barcode_info, F_B, B_F
+from all_demo_ff import  front_info
 from Utils import Feature_extract
 
 
@@ -31,8 +32,9 @@ def processArgs():
     parser.add_argument('--r2', type=str, default='r2.fastq', help='r2_fastq文件名')
     #todo help信息补齐
     parser.add_argument('--start', type=int, default=1)
-    parser.add_argument('--num', type=int)
-    parser.add_argument('--c', type=int)
+    parser.add_argument('--num', type=int, default=1)
+    parser.add_argument('--c1', type=int, default=1)
+    parser.add_argument('--c2',type=int, default=1)
     # parser.add_argument('--output', type=str, default='output.txt', help='输出文件路径（默认：output.txt）')
     # parser.add_argument('--flag', action='store_true', help='一个布尔标志')
     args = parser.parse_args()
@@ -43,6 +45,7 @@ def generateSeries(args):
     if (args.batch == False):
         a = DataProcessUtil(args.workingSpace)
         a.readPlasmids()
+        a.readRepeat(args.workingSpace)
         a.readDepthTable(args.lengthThreshold)
         a.readDirection(False)
         a.readGenome()
@@ -267,13 +270,15 @@ def filt(args):
     my_class.add_index(out_path)
 def spadesRun(args):
     subprocess.run(
-        'python3 ' + args.workingSpace + '/SPAdes-3.15.5-Linux/bin/spades.py -1 ' + args.workingSpace + '/fastp_r1.fastq -2 ' + args.workingSpace + '/fastp_r2.fastq -o ' +
+        './SPAdes-3.15.5-Linux/bin/spades.py -1 ' + args.workingSpace + '/fastp_r1.fastq -2 ' + args.workingSpace + '/fastp_r2.fastq -o ' +
         args.workingSpace + '/spades_result_unique_new/'
         , shell=True)
-def bwaAndSeparate(args):
+def bwaAndSeparate(args,n):
     my_class1 = bwa_and_separate(args.workingSpace, n)
     my_class1.bwa_result()
-    my_class1.separate_and_clear(args.workingSpace, n)
+    # 获得plasmids
+    get_plasmids(args)
+    my_class1.separate_and_clear(n)
 def Barcode_info_run(path_bam, file_path, start, n, num, c, file_compare):
     my_class0 = Barcode_info(path_bam, file_path, start, n, num, c, file_compare)
     my_class0.create_file(file_path, n)
@@ -315,7 +320,7 @@ def front_info_run(file_path, file_path_in, n, start, c, file_compare):
     my_class2.mv_file(file_compare, n)
     my_class2.combine_file(file_path_in, n, start)
     my_class2.sort_useful_info(file_path_in, c)
-    my_class2.get_int_barcode_set(file_path_in, start)
+    my_class2.get_int_barcode_set(file_path_in, n, start)
     my_class2.get_dir_barcode_set(file_path_in, n, start)
     my_class2.auto_barcode_intersection(file_path_in, n, start)
     my_class2.auto_intersection_count(file_path_in, n, start)
@@ -412,12 +417,20 @@ def get_label_list(file_path, start):
     my_class7.feature_extract(file_path)
     my_class7.get_label(file_path)
 def get_blast(args):
-    subprocess.run(
-        'sh ./scripts/generateBlastResult.sh ' + args.workingSpace + "/spades_result_unique/assembly.fasta "
+    #process = subprocess.Popen(['sh', shell_script_path])  # 如果shell_script_path是可执行的，可以直接使用它
+
+    # 等待shell脚本执行完成
+
+    process = subprocess.Popen(
+        'sh ./scripts/generateBlastResult.sh ' + args.workingSpace + "/spades_result_unique_new/assembly.fasta "
         + args.workingSpace + "/spades_result_unique_new/get_different_contig "
         + args.workingSpace + "/blast_connection "
         + args.workingSpace
         , shell=True)
+    print('get_blast ................')
+    process.wait()
+    print('get_blast finish')
+
 def get_plasmids(args):
     subprocess.run(
         'filter_sequences_by_length.pl -input ' + args.workingSpace + "/spades_result_unique_new/input_dataset.fasta -output " +
@@ -426,6 +439,12 @@ def get_plasmids(args):
     subprocess.run(
         "PlasFlow.py --input " + args.workingSpace + "/spades_result_unique_new/Citrobacter_freundii_strain_CAV1321_scaffolds.fasta --output " + args.workingSpace + "/spades_result_unique_new/plasflow_predictions.tsv --threshold 0.7"
         , shell=True)
+    data_in = open(args.workingSpace +"/spades_result_unique_new/plasflow_prediction.tsv_plasmids.fasta" , "r").readlines()
+    data_out = open(args.workingSpace +"/spades_result_unique_new/prediction_plasmid_plasflow.txt", "w")
+    for line in data_in:
+        if "NODE" in line:
+            data_out.writelines(line)
+    data_out.close()
 if __name__ == '__main__':
     # 解析参数
     args=processArgs()
@@ -446,28 +465,27 @@ if __name__ == '__main__':
         print("解析n出错")
         sys.exit()
     #BWA比对并分别获取每个contig对应的比对信息，去除低质量的contigs：
-    bwaAndSeparate(args)
+    bwaAndSeparate(args,n)
     #确定contigs之间的配对信息和方向信息：
     #1)得到整体contigs之间的相似度度量矩阵
-    Barcode_info_run(args.workingSpace+'/spades_result_unique_new/', args.workingSpace+'/spades_result_unique_new/', args.start, n, args.num, args.c, args.workingSpace+'/spades_result_unique_new/compare_before_\(file_4\)')
+    Barcode_info_run(args.workingSpace+'/spades_result_unique_new/', args.workingSpace+'/spades_result_unique_new/', args.start, n, args.num, args.c1, args.workingSpace+'/spades_result_unique_new/compare_before_(file_4)')
     #2)得到前端方向信息的相似度度量矩阵
-    front_info_run(args.workingSpace+'/spades_result_unique_new/', args.workingSpace+'/spades_result_unique_new/ff_list/', n, args.start, args.c, args.workingSpace+'/spades_result_unique_new/ff_list/compare_before/')
+    front_info_run(args.workingSpace+'/spades_result_unique_new/', args.workingSpace+'/spades_result_unique_new/ff_list/', n, args.start, args.c2, args.workingSpace+'/spades_result_unique_new/ff_list/compare_before/')
     #3)得到后端方向信息的相似度度量矩阵
-    back_info_run(args.workingSpace+'/spades_result_unique_new/', args.workingSpace+'/spades_result_unique_new/bb_list/', n, args.start, args.c, args.workingSpace+'/spades_result_unique_new/bb_list/compare_before/')
+    back_info_run(args.workingSpace+'/spades_result_unique_new/', args.workingSpace+'/spades_result_unique_new/bb_list/', n, args.start, args.c2, args.workingSpace+'/spades_result_unique_new/bb_list/compare_before/')
     #得到前端—后端方向信息的相似度度量矩阵和后端—前端方向信息的相似度度量矩阵
     barcode_info_run(args.workingSpace+'/spades_result_unique_new/', args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/', n, args.num, args.start)
     #F_B
-    fb_run(args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/', n, args.start, args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/compare_before\(f-b\)', args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/compare_before\(b-f\)', args.c)
+    fb_run(args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/', n, args.start, args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/compare_before(f-b)', args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/compare_before(b-f)', args.c1)
     #b_f
-    bf_run(args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/', n, args.start, args.c)
+    bf_run(args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/', n, args.start, args.c1)
     #得到label_list(jaccard).txt：
     get_label_list(args.workingSpace+'/spades_result_unique_new/', args.start)
     #得到延申需要的blast结果：  # todo 并行
     get_blast(args)
-    #获得plasmids
-    get_plasmids(args)
+
     #拼接、延伸、生成序列图及信息
-    # generateSeries(args)
+    generateSeries(args)
 
 
 

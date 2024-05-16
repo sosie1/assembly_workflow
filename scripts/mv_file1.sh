@@ -1,7 +1,7 @@
 path=$1
 for i in `seq 1 "$2"`;do
   cd ${path}/new_info_${i}/
-  mkdir ./compara_to_contig/
+  mkdir {path}/new_info_${i}/compara_to_contig/
   mv ${path}/new_info_${i}/barcode_set_of_contig_* ${path}/new_info_${i}/compara_to_contig/
 done
 

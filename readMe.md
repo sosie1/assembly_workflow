@@ -1,6 +1,18 @@
 ### 依赖
 svg-> pdf : pip3 install svglib  
 writeSvg : pip3 install svgwrite
+
+pip3 install --user --upgrade cutadapt
+todo： bin移动到目的bin路径
+
+fastp(调用位置修改)
+fastqc jdk
+bwa 
+samtools
+
+plasfow安装
+blast安装
+
 ### tips
 图像长短
 线粗细up 窄一些 
@@ -49,12 +61,7 @@ plasmids 小样本延伸要用 ok
 粗略图 单独一个长contig < 8000 ok
 重复序列 < 10000 直接不考虑32这个样本
 
-pip3 install --user --upgrade cutadapt
-todo： bin移动到目的bin路径
 
-todo: fastqc jdk
-bwa
-samtools
 
 
 

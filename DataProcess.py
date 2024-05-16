@@ -23,8 +23,8 @@ class DataProcessUtil:
 
         #self.plasmids_plasmids=[]
     def readPlasmids(self):
-        if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
-            with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
+        if os.path.exists(self.path+'/spades_result_unique_new/prediction_plasmid_plasflow.txt'):
+            with open(self.path+'/spades_result_unique_new/prediction_plasmid_plasflow.txt', 'r') as file:
                 # 按行读取文件内容
                 lines = file.readlines()
                 for line in lines:
@@ -74,8 +74,8 @@ class DataProcessUtil:
         return temp
     def readDepthTable_Plasmid(self,length_threshold):
         self.generateFilter()
-        if os.path.exists(self.path + '/output_with_depth_table.txt'):
-            with open(self.path + '/output_with_depth_table.txt', 'r') as file:
+        if os.path.exists(self.path + '/spades_result_unique_new/output_with_depth_table.txt'):
+            with open(self.path + '/spades_result_unique_new/output_with_depth_table.txt', 'r') as file:
                 # 按行读取文件内容
                 lines = file.readlines()
                 lines.pop(0)
@@ -112,8 +112,8 @@ class DataProcessUtil:
         print("读取可重复长序列信息over")
     def readDepthTable(self,length_threshold):
         self.generateFilter()
-        if os.path.exists(self.path+'/output_with_depth_table.txt'):
-            with open(self.path+'/output_with_depth_table.txt', 'r') as file:
+        if os.path.exists(self.path+'/spades_result_unique_new/output_with_depth_table.txt'):
+            with open(self.path+'/spades_result_unique_new/output_with_depth_table.txt', 'r') as file:
                 # 按行读取文件内容
                 lines = file.readlines()
                 lines.pop(0)
@@ -219,7 +219,7 @@ class DataProcessUtil:
             del contigPrePairs[directionPairNums[0]]
             del contigNextPairs[directionPairNums[1]]
     def generateFilter(self):
-        with open(self.path+'/label_list(jaccard).txt', 'r') as file:
+        with open(self.path+'/spades_result_unique_new/label_list(jaccard).txt', 'r') as file:
             # 按行读取文件内容
             lines = file.readlines()
             for line in lines:
@@ -246,7 +246,7 @@ class DataProcessUtil:
         contigPrePairs = {}
 
         # 打开文件
-        with open(self.path+'/label_list(jaccard).txt', 'r') as file:
+        with open(self.path+'/spades_result_unique_new/label_list(jaccard).txt', 'r') as file:
             # 按行读取文件内容
             lines = file.readlines()
             # 打印每一行的内容
@@ -519,7 +519,7 @@ class DataProcessUtil:
 
     def readGenome(self):
         # 打开文件
-        with open(self.path+'/outfile_genome.txt', 'r') as file:
+        with open(self.path+'/spades_result_unique_new/outfile_genome.txt', 'r') as file:
             # 按行读取文件内容
             lines = file.readlines()
             preLine=''
@@ -1033,8 +1033,8 @@ class DataProcessUtil:
         #maxBps = 0
         maxerCoincidence = 0
         #direction = 0  # 同向
-        if os.path.exists(self.path+'/blast_all_info/all_'+id+'.txt'):
-            with open(self.path+'/blast_all_info/all_'+id+'.txt', 'r') as file:
+        if os.path.exists(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt'):
+            with open(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt', 'r') as file:
                 lines = file.readlines()
                 if(bigContig!=None):
                     for line in lines:
@@ -1171,8 +1171,8 @@ class DataProcessUtil:
         #maxBps = 0
         #maxerCoincidence = 0
         #direction = 0  # 同向
-        if os.path.exists(self.path + '/blast_all_info/all_' + id + '.txt'):
-            with open(self.path+'/blast_all_info/all_'+id+'.txt', 'r') as file:
+        if os.path.exists(self.path + '/blast_connection/blast_all_info/all_' + id + '.txt'):
+            with open(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt', 'r') as file:
                 lines = file.readlines()
                 if(bigContig!=None):
                     if (bigContig.i == '52'):

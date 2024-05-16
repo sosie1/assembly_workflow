@@ -915,7 +915,7 @@ class barcode_info:
 
     def create_file(self, file_path_in, n):
         import subprocess
-        subprocess.run(['sh', 'create_file3.sh', self.file_path_in,
+        subprocess.run(['sh', './scripts/create_file3.sh', self.file_path_in,
                         str(self.n - 1)])
 
     def get_front_barcode_info(self, file_path, file_path_in, start, n, num):
