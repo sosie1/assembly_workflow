@@ -34,8 +34,8 @@ class bwa_and_separate:
         #avg_cov = np.mean(cov_list)
         #std_cov = np.std(cov_list)
         # this step can use other method:
-        low = cov_whole//20
-        high = cov_whole*3//5
+        low = cov_whole//30
+        high = cov_whole*3//20
         #low = avg_cov - 3 * std_cov
         #high = avg_cov + 3 * std_cov
         print("low_coverage_threshold:" + str(low), "high_coverage_threshold:" + str(high))

@@ -483,12 +483,12 @@ class DataProcessUtil:
             if(str(i)) in self.headContigs:
                 if self.contigs[str(i)].next==None and self.contigs[str(i)].pre==None:
                     del self.headContigs[str(i)]
-        toRemove = {}
-        for i in self.headContigs:
-            if (self.contigs[i].length < 8000 and self.contigs[i].next == None and self.contigs[i].pre == None):
-                toRemove[i] = 0
-        for i in toRemove:
-            del self.headContigs[i]
+        # toRemove = {}
+        # for i in self.headContigs:
+        #     if (self.contigs[i].length < 8000 and self.contigs[i].next == None and self.contigs[i].pre == None):
+        #         toRemove[i] = 0
+        # for i in toRemove:
+        #     del self.headContigs[i]
 
 
         # contigHead = self.contigs['1']

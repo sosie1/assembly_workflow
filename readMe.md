@@ -12,6 +12,7 @@ samtools
 
 plasfow安装
 blast安装
+conda install perl-digest-md5
 
 ### tips
 图像长短
