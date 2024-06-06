@@ -61,6 +61,28 @@ plasmids 小样本延伸要用 ok
 
 粗略图 单独一个长contig < 8000 ok
 重复序列 < 10000 直接不考虑32这个样本
+### 伪代码
+'''
+extendSeries(coincidenceThreshold):
+    For each contig in long contigs:
+        Create three empty lists called path、connectedlists、nLists
+        call extendTailOrHead function with lists and contig
+        If connectedlists  is not empty:
+            choose the longest element in connectedlists
+        else:
+            choose the longest element in nLists
+    return 
+extendTailOrHead(contig,coincidenceThreshold,next_long_contig,connectedlists,nLists,path):
+    if there is an overlap greater than  coincidenceThreshold between contig and next_long_contig :
+        append path to the end of connectedlists
+        return 
+    if there is an overlap greater than  coincidenceThreshold between contig and other short contig :
+        append the short contig to the end of path
+        call extendTailOrHead function with the short contig
+    else:
+        append path to the end of nLists
+        return
+'''
 
 
 

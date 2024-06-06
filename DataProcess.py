@@ -535,7 +535,7 @@ class DataProcessUtil:
                     self.tinyContigs[preLine].series=line.replace('\n','')
     def writeN(self,file,cnt,c,indexx,id):
         temp=''
-        temp+=str(id)
+        #temp+=str(id)
         for i in range(cnt):
             temp+=c
         if len(temp)<60-indexx:
@@ -975,44 +975,21 @@ class DataProcessUtil:
                 nList=[]
                 path=Path()
                 self.extendTail(contigId,coincidenceThreshold,nextContig,tinyList,nList,path,coincidenceThreshold_1,True)
-                # if (contigId == '38'):
-                #     for a in tinyList:
-                #         print(a.list)
-                #     print('----')
-                #     for a in nList:
-                #         print(a.list)
                 path=Path.getLongestPath(tinyList)
-
                 if path==None:
-                    path = Path.getLongestPath(nList)
+                    path = Path.getLongestPathMultiplePriorities(nList)
                     if path!=None:
                         self.realExtendSeries(contig, path, 0, nextContig, True)
                 else:
                     self.realExtendSeries(contig, path, 0, nextContig, False)
-                print(contigId+'tail')
-                if(contig.tinyNext!=None):
-                    print('is'+contig.tinyNext.i)
-
-
-
             if contig.tinyPre==None:
                 tinyList = []
                 nList = []
                 path = Path()
-
-
                 self.extendHead(contigId,coincidenceThreshold,preContig,tinyList,nList,path,coincidenceThreshold_1,True)
-                # if (contigId == '12'):
-                #     for a in tinyList:
-                #         print(a.list)
-                #     print('----')
-                #     for a in nList:
-                #         print(a.list)
-
                 path = Path.getLongestPath(tinyList)
-
                 if path == None:
-                    path = Path.getLongestPath(nList)
+                    path = Path.getLongestPathMultiplePriorities(nList)
                     if path != None:
                         self.realExtendSeries(contig, path, 1, preContig, True)
                 else:
@@ -1020,10 +997,7 @@ class DataProcessUtil:
                 print(contigId + 'head')
                 if (contig.tinyPre != None):
                     print('is' + contig.tinyPre.i)
-
     def extendTail(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,isLongContig):
-        #print(path.list)
-        #print('-'+id+'-')
         contig=None
         isTiny = False
         if (isLongContig):
@@ -1032,10 +1006,6 @@ class DataProcessUtil:
             isTiny = True
             contig = self.tinyContigs[id]
         length = contig.length
-        #maxId = '-1'
-        #maxBps = 0
-        maxerCoincidence = 0
-        #direction = 0  # 同向
         if os.path.exists(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt'):
             with open(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt', 'r') as file:
                 lines = file.readlines()
@@ -1055,7 +1025,6 @@ class DataProcessUtil:
                                 self.contigNextBps[id][nums[0]] = bps
                                 appendPath = path.deepCopy()
                                 lists.append(appendPath)
-
                                 return
                             elif (nums[7] in [str(tinyLength),str(tinyLength-1),str(tinyLength-2) \
                                     ,str(tinyLength-3),str(tinyLength-4)] and
@@ -1080,35 +1049,22 @@ class DataProcessUtil:
                         if nums[6] in ['1','2','3','4','5'] and nums[9]in [str(length),str(length-1),str(length-2) \
                                 ,str(length-3),str(length-4)] and path.isThreeRepeat(nums[0])==False:
                             isN=False
-                            #if coincidenceEquality>maxerCoincidence or (coincidenceEquality==maxerCoincidence and bps>maxBps):
-                            #if bps>maxBps or (bps==maxBps and float(nums[2])>maxerCoincidence):
-                                #maxBps=bps
-                                #maxId=nums[0]
-                                #maxerCoincidence=float(nums[2])
-                                #direction=0
                             self.contigPreBps[nums[0]][id] = bps
                             self.contigNextBps[id][nums[0]]=bps
                             path.list.append(nums[0])
                             path.directions.append(1)
                             path.length+=tinyLength
-
+                            path.score+=float(nums[2])
                             self.extendTail(nums[0], coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,False)
-
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
+                            path.score -= float(nums[2])
                         # -><-
                         if nums[7] in [str(tinyLength),str(tinyLength-1),str(tinyLength-2) \
                                 ,str(tinyLength-3),str(tinyLength-4)] and \
                               nums[8] in [str(length),str(length-1),str(length-2) \
                                 ,str(length-3),str(length-4)] and path.isThreeRepeat(nums[0])==False:
-                            # if coincidenceEquality > maxerCoincidence or (
-                            #         coincidenceEquality == maxerCoincidence and bps > maxBps):
-                            #if bps>maxBps or (bps==maxBps and float(nums[2])>maxerCoincidence):
-                                # maxBps=bps
-                                # maxId=nums[0]
-                                # maxerCoincidence=float(nums[2])
-                                # direction=1
                             isN=False
                             self.contigNextBps[nums[0]][id] = bps
                             self.contigNextBps[id][nums[0]] = bps
@@ -1116,50 +1072,16 @@ class DataProcessUtil:
                             path.list.append(nums[0])
                             path.directions.append(0)
                             path.length += tinyLength
-
+                            path.score += float(nums[2])
                             self.extendHead(nums[0], coincidenceThreshold, bigContig, lists,nLists, path,coincidenceThreshold_1,False)
 
                             path.list.pop()
                             path.directions.pop()
                             path.length-=tinyLength
+                            path.score -= float(nums[2])
                 if isN==True:
                     appendPath = path.deepCopy()
                     nLists.append(appendPath)
-
-        # if maxId!='-1':
-        #
-        #     if direction==0:
-        #         if (isTiny and self.tinyContigs[maxId].tinyPre==None):
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #             self.tinyContigs[maxId].tinyPre = contig
-        #             self.tinyContigs[maxId].preCoincidence[id] = maxBps
-        #             if self.tinyContigs[maxId].tinyNext==None:
-        #                 self.extendTail(maxId,coincidenceThreshold)
-        #         elif isTiny==False:
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #             self.tinyContigs[maxId].tiny_bigPre.append(contig)
-        #             self.tinyContigs[maxId].preCoincidence[id]= maxBps
-        #             if self.tinyContigs[maxId].tinyNext == None:
-        #                 self.extendTail(maxId, coincidenceThreshold)
-        #     elif direction==1:
-        #         if isTiny and self.tinyContigs[maxId].tinyNext == None:
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #             self.tinyContigs[maxId].tinyNext = contig
-        #             self.tinyContigs[maxId].nextCoincidence[id] = maxBps
-        #             if self.tinyContigs[maxId].tinyPre == None:
-        #                 self.extendHead(maxId, coincidenceThreshold)
-        #         elif isTiny == False:
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #
-        #             self.tinyContigs[maxId].tiny_bigNext.append(contig)
-        #             # if (maxId == '1'):
-        #             #     print('add' + contig.i)
-        #             self.tinyContigs[maxId].nextCoincidence[id] = maxBps
-        #             # if id == '38' and maxId == '58':
-        #             #     for a in self.tinyContigs[maxId].tiny_bigNext:
-        #             #         print(a.i)
-        #             if self.tinyContigs[maxId].tinyPre == None:
-        #                 self.extendHead(maxId, coincidenceThreshold)
     def extendHead(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,isLongContig):
         #print(path.list)
         contig=None
@@ -1229,11 +1151,12 @@ class DataProcessUtil:
                             path.list.append(nums[0])
                             path.directions.append(0)
                             path.length += tinyLength
-
+                            path.score += coincidenceEquality
                             self.extendHead(nums[0], coincidenceThreshold, bigContig, lists, nLists, path,coincidenceThreshold_1,False)
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
+                            path.score -= coincidenceEquality
                         if nums[6] in ['1','2','3','4','5'] and nums[9] in ['1','2','3','4','5'] and path.isThreeRepeat(nums[0])==False:
                             # if coincidenceEquality > maxerCoincidence or (
                             #         coincidenceEquality == maxerCoincidence and bps > maxBps):
@@ -1250,11 +1173,12 @@ class DataProcessUtil:
                             path.list.append(nums[0])
                             path.directions.append(1)
                             path.length += tinyLength
-
+                            path.score += coincidenceEquality
                             self.extendTail(nums[0], coincidenceThreshold, bigContig, lists, nLists, path,coincidenceThreshold_1,False)
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
+                            path.score -= coincidenceEquality
                 if isN==True:
                     appendPath = path.deepCopy()
                     nLists.append(appendPath)
@@ -1294,6 +1218,7 @@ class Path:
         self.list=[] #tiny序列
         self.directions=[]# 0 next连接上一个 1 pre连接上一个
         self.length=0
+        self.score=0
 
 
 
@@ -1323,9 +1248,36 @@ class Path:
         maxLength=0
         res=None
         for path in lists:
-            if path.length>maxLength:
-                maxLength=path.length
+            number=len(path.list)
+            s=(path.score/number*path.length)/number
+            if s>maxLength:
+                maxLength=s
                 res=path
+        return res
+
+    @staticmethod
+    def getLongestPathMultiplePriorities(lists):
+        maxLength = 0
+        maxnumber = sys.maxsize
+        maxscore=0
+        res = None
+        for path in lists:
+            number = len(path.list)
+            score=path.score/number
+            isBetter=False
+            if path.length > maxLength:
+                isBetter=True
+            elif path.length == maxLength:
+                if(number<maxnumber):
+                    isBetter=True
+                elif number==maxnumber:
+                    if(score>maxscore):
+                        isBetter=True
+            if isBetter==True:
+                maxLength = path.length
+                maxnumber = number
+                maxscore = score
+                res = path
         return res
 
 class EndContig:
