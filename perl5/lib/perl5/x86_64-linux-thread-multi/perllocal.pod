@@ -1,0 +1,22 @@
+=head2 Wed Jul 31 18:12:11 2024: C<Module> L<BioPerl|BioPerl>
+
+=over 4
+
+=item *
+
+C<installed into: /bios-store5/lyt/python_demo_try/SeriesAnalysis/perl5/lib/perl5>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.7.8>
+
+=item *
+
+C<EXE_FILES: bin/bp_aacomp bin/bp_bioflat_index bin/bp_biogetseq bin/bp_dbsplit bin/bp_extract_feature_seq bin/bp_fastam9_to_table bin/bp_fetch bin/bp_filter_search bin/bp_find-blast-matches bin/bp_gccalc bin/bp_genbank2gff3 bin/bp_index bin/bp_local_taxonomydb_query bin/bp_make_mrna_protein bin/bp_mask_by_search bin/bp_mrtrans bin/bp_mutate bin/bp_nexus2nh bin/bp_nrdb bin/bp_oligo_count bin/bp_process_gadfly bin/bp_process_sgd bin/bp_revtrans-motif bin/bp_search2alnblocks bin/bp_search2gff bin/bp_search2table bin/bp_search2tribe bin/bp_seq_length bin/bp_seqconvert bin/bp_seqcut bin/bp_seqpart bin/bp_seqret bin/bp_seqretsplit bin/bp_split_seq bin/bp_sreformat bin/bp_taxid4species bin/bp_taxonomy2tree bin/bp_translate_seq bin/bp_tree2pag bin/bp_unflatten_seq>
+
+=back
+
