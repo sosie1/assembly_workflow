@@ -1,5 +1,8 @@
 import subprocess
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import math
 
 class bwa_and_separate:
     def __init__(self, out_path, n):
@@ -12,6 +15,8 @@ class bwa_and_separate:
              ,shell=True)
 
     def separate_and_clear(self, n):
+        import matplotlib
+        matplotlib.use('Agg')
         data_in = open(self.out_path + "spades_result_unique_new/coverage.txt", "r").readlines()
         data_out = open(self.out_path + "spades_result_unique_new/coverage_pair_info.txt", "w")
         for line in data_in:
@@ -23,21 +28,63 @@ class bwa_and_separate:
         data = open(self.out_path + "spades_result_unique_new/coverage_pair_info.txt", "r").readlines()
         cov_whole = 0
         index = 0
-        while index < 10:
+        while index < 9:
             cov_whole += float(data[index].split("\t")[1][:-1])
             index += 1
 
         cov_list = []
         for i in range(0, 10):
             cov_list.append(float(data[index].split("\t")[1][:-1]))
+        #add_new_content
+        x = []
+        y = []
+        for line in data:
+            x.append(int(line.split("\t")[0]))
+            y.append(float(line.split("\t")[1][:-1])+1)
 
-        #avg_cov = np.mean(cov_list)
-        #std_cov = np.std(cov_list)
-        # this step can use other method:
-        low = cov_whole//30
+        logy = np.log10(y)
+        avg = np.mean(logy)
+        std = np.std(logy)
+        print(avg,std)
+        dirn = {}
+        for i in range(len(x)):
+            dirn[x[i]]=logy[i]
+
+        sns.kdeplot(logy)
+        plt.savefig(self.out_path + 'spades_result_unique_new/cov_new.png')
+        from sklearn.mixture import GaussianMixture
+        gmm = GaussianMixture(n_components=2) 
+        gmm.fit(logy.reshape(-1, 1)) 
+        means = gmm.means_ 
+        standard_deviations = gmm.covariances_**0.5 
+        weights = gmm.weights_ 
+        #print(f"Means: {means}, Standard Deviations: {standard_deviations},Weights:{weights}") 
+        means=list(np.concatenate(means.reshape((-1,1),order="F")))
+        standard_deviations=list(np.concatenate(standard_deviations.reshape((-1,1),order="F")))
+        dir_gauss={}
+        for i in range(2):
+            dir_gauss[i]=[means[i]-1,standard_deviations[i]]
+        #print(dir_gauss)
+        '''
+        if dir_gauss[0][0]> dir_gauss[1][0] and dir_gauss[0][1]<0.5 and math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])< math.pow(10,dir_gauss[0][0]):
+            low = math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])
+            high = math.pow(10,dir_gauss[0][0])
+        elif dir_gauss[0][0]<dir_gauss[1][0] and dir_gauss[1][1]<0.5 and math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])< math.pow(10,dir_gauss[0][0]):
+            low = math.pow(10,dir_gauss[0][0]+5*dir_gauss[0][1])
+            high = math.pow(10,dir_gauss[1][0])
+        elif math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])>= math.pow(10,dir_gauss[0][0]): 
+            low = cov_whole//30
+            high = cov_whole*3//20
+        elif dir_gauss[0][0]> dir_gauss[1][0] and dir_gauss[0][1]>0.5:
+            low = cov_whole//30
+            high = cov_whole*3//20
+        elif dir_gauss[0][0]<dir_gauss[1][0] and dir_gauss[1][1]>0.5:
+            low = cov_whole//30
+            high = cov_whole*3//20
+        '''
+        low = cov_whole//20
         high = cov_whole*3//20
-        #low = avg_cov - 3 * std_cov
-        #high = avg_cov + 3 * std_cov
+        
         print("low_coverage_threshold:" + str(low), "high_coverage_threshold:" + str(high))
 
         name_list = []
@@ -69,12 +116,13 @@ class bwa_and_separate:
         efficient_id.close()
 
         length = open(self.out_path + "spades_result_unique_new/output_with_depth_table.txt", "r").readlines()
-
-                # this step need file(prediction_plasmid_plasflow.txt)--so we need run plasflow
+        # this step need file(prediction_plasmid_plasflow.txt)--so we need run plasflow
         # new_code
         large_contig_name = []
         for i in range(1, n):
             large_contig_name.append(length[i].split("\t")[0].split("_")[1])
+        print(large_contig_name)
+            
         plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", "r").readlines()
         plasmids_name = []
         for line in plasmids_data:
@@ -82,12 +130,14 @@ class bwa_and_separate:
 
         name_interaction = list(set(duplication_list) & set(large_contig_name))
         name_inter_final = list(set(name_interaction) - set(plasmids_name))
-
+        print(name_interaction)
+        print(name_inter_final)
+        
         large_contig_txt = open(self.out_path + "duplicated_long_contigs_name.txt", "w")
         for name in name_inter_final:
             large_contig_txt.writelines(name + "\n")
         large_contig_txt.close()
-
+        
         data = open(self.out_path + "spades_result_unique_new/full_final_unique_out.info.txt", "r").readlines()
         j = 1
         while j < n:
@@ -105,10 +155,7 @@ class bwa_and_separate:
                 data_out.writelines("")
                 data_out.close()
                 j += 1
-
-
-
-
+        
 
 class filter_data:
     def __init__(self, out_path, file_r1, file_r2, file_i1, file_w):
@@ -243,7 +290,6 @@ class filter_data:
         print(one_mismatch_barcode_num)
 
     def cut_adapter_and_fastp(self, out_path):
-
 
         subprocess.run(
             'sh ./scripts/cutadapt_fastp.sh '+

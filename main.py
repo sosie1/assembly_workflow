@@ -13,14 +13,10 @@ from MatrixGeneration import back_info, barcode_info, F_B, B_F
 from all_demo_ff import  front_info
 from Utils import Feature_extract
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
 def processArgs():
     parser = argparse.ArgumentParser(description='SeriesAnalysis_1.0')
     parser.add_argument('--coincidenceThreshold', type=float, default=99, help='序列有效重合比例阈值')
-    parser.add_argument('--coincidenceThreshold_1', type=float, default=95, help='短-长序列有效重合比例阈值')
+    parser.add_argument('--coincidenceThreshold_1', type=float, default=99, help='短-长序列有效重合比例阈值')
     parser.add_argument('--lengthThreshold', type=int,  default=5000,help='序列长度阈值')
     parser.add_argument('--workingSpace',type=str,help='工作路径')
     parser.add_argument('--outputSpace',type=str,default='.',help='输出路径')
@@ -56,7 +52,7 @@ def generateSeries(args):
         b.generateSvg(a.contigs, args.outputSpace)
         a.writeFastA(args.outputSpace, True)
         print('段数:' + str(a.writeFastA(args.outputSpace, False)))
-        print('延伸后断裂位点总数量:', str(a.encodeFastA(args.outputSpace)))
+        a.encodeFastA(args.outputSpace)
 
         if (args.plasmids == True):
             folder = os.path.exists(args.outputSpace + '/plasmid')
@@ -75,7 +71,7 @@ def generateSeries(args):
             b1.generateSvg(a1.contigs, args.outputSpace + '/plasmid')
             a1.writeFastA(args.outputSpace + '/plasmid', True)
             print('plasmid:段数:' + str(a1.writeFastA(args.outputSpace + '/plasmid', False)))
-            print('plasmid:延伸后断裂位点总数量:', str(a1.encodeFastA(args.outputSpace + '/plasmid')))
+            a1.encodeFastA(args.outputSpace + '/plasmid')
 
 
     else:
@@ -219,9 +215,9 @@ def rename_assembly(out_path):
             else:
                 Dict[key].append(line)
 
-        with open(out_path + "spades_result_unique_new/output_with_depth_table.txt", 'w') as table:
+        with open(out_path + "spades_result_unique_new/output_with_depth_table_1.txt", 'w') as table:
             with open(out_path + "spades_result_unique_new/outfile_genome.txt", 'w') as genome:
-                table.write("\tBase(bp)\tGC%\tStructure\n")
+                #table.write("\tBase(bp)\tGC%\tStructure\n")
                 for key, value in Dict.items():
                     if key[0] == ">":
                         name = key[1:]
@@ -232,27 +228,52 @@ def rename_assembly(out_path):
                         gc_percent = format((seq.count("G") + seq.count("C")) / length * 100, '0.2f')
                         # print("\033[32m{}\t{}\033[0m".format(key, length))
                         table.write("contig_{}\t{}\t{}\tChromosome\n".format(name, length, gc_percent))
-
+     
+    subprocess.run("sort -t $'\t' -k2,2nr "+ out_path + "/spades_result_unique_new/output_with_depth_table_1.txt > "+ out_path+ "/spades_result_unique_new/output_with_depth_table.txt", shell=True)
+    data_new = open(out_path+"/spades_result_unique_new/output_with_depth_table.txt","r").readlines()       
+    data_new.insert(0,"\tBase(bp)\tGC%\tStructure\n")
+    with open(out_path+"/spades_result_unique_new/output_with_depth_table.txt", 'w', encoding='utf-8') as file:  
+        file.writelines(data_new)
+    '''
+      output_file = open(out_path + "spades_result_unique_new/output_with_depth_table_1.txt","r").readlines()
+      headLine=output_file[0]
+      outresult=output_file[1:]
+      output_file_sort = out_path + "spades_result_unique_new/output_with_depth_table.txt"
+      
+      with open(output_file_sort, 'w') as writersort:
+          writersort.write(headLine)
+          writersort.write(''.join(sorted(outresult, key=lambda s: int(s.split("\t")[1]))))
+    '''
     data = open(out_path + "spades_result_unique_new/scaffolds.fasta", "r").readlines()
     data_out = open(out_path + "spades_result_unique_new/coverage.txt", "w")
     for line in data:
         if line[0] == ">":
             data_out.writelines(line)
     data_out.close()
+    
 def readN(path,length_threshold):
     if os.path.exists(path + '/spades_result_unique_new/output_with_depth_table.txt'):
         with open(path + '/spades_result_unique_new/output_with_depth_table.txt', 'r') as file:
             # 按行读取文件内容
             lines = file.readlines()
             lines.pop(0)
+            list=[]
             # 打印每一行的内容
             for line in lines:
                 nums = line.split('\t')
                 length = int(nums[1])
                 idStr = nums[0].replace(" ","").split('_')[1]
-                if length < length_threshold:
-                    return int(idStr)
-    return -1
+                #map[idStr]=length
+                a=[]
+                a.append(int(idStr))
+                a.append(length)
+                list.append(a)
+            list=sorted(list,key=lambda x: x[1], reverse=True)
+            for line in list:
+                if line[1] < length_threshold:
+                    return line[0]            
+    return -1    
+    
 def filt(args):
     file_r1 = args.workingSpace + "unique_R1.fastq"
     file_r2 = args.workingSpace + "unique_R2.fastq"
@@ -271,12 +292,11 @@ def filt(args):
 def spadesRun(args):
     subprocess.run(
         './SPAdes-3.15.5-Linux/bin/spades.py -1 ' + args.workingSpace + '/fastp_r1.fastq -2 ' + args.workingSpace + '/fastp_r2.fastq -o ' +
-        args.workingSpace + '/spades_result_unique_new/'
+        args.workingSpace + '/spades_result_unique_new/ -k 21 25 33 55 71 77 115'
         , shell=True)
 def bwaAndSeparate(args,n):
     my_class1 = bwa_and_separate(args.workingSpace, n)
-    my_class1.bwa_result()
-    # 获得plasmids
+    #my_class1.bwa_result()
     get_plasmids(args)
     my_class1.separate_and_clear(n)
 def Barcode_info_run(path_bam, file_path, start, n, num, c, file_compare):
@@ -290,7 +310,6 @@ def Barcode_info_run(path_bam, file_path, start, n, num, c, file_compare):
     my_class0.barcode_bwa_set_few(file_path, n, start)
     my_class0.auto_barcode_intersection_sort(file_path, n, start)
     my_class0.auto_intersection_count_sort(file_path, n, start)
-
     my_class0.mv_file(file_compare, n)
     my_class0.remove_occur_once(file_path, n, start)
     my_class0.remove_more_than_k(file_path, n, c)
@@ -298,12 +317,10 @@ def Barcode_info_run(path_bam, file_path, start, n, num, c, file_compare):
     my_class0.get_dir_barcode_set(file_path, n, start)
     my_class0.auto_barcode_intersection(file_path, n, start)
     my_class0.auto_intersection_count(file_path, n, start)
-
     my_class0.auto_barcode_union(file_path, n, start)
     my_class0.barcode_intersection_len(file_path, n, start)
     my_class0.barcode_union_len(file_path, n, start)
     my_class0.get_jaccard_corr(file_path, n, start)
-
     my_class0.all_count_of_contig_each(file_path, n, start)
     my_class0.barcode_total_number(file_path, n, start)
     my_class0.get_sorensen_dice(file_path, n, start)
@@ -316,7 +333,6 @@ def front_info_run(file_path, file_path_in, n, start, c, file_compare):
     my_class2.barcode_bwa_set_few(file_path_in, n, start)
     my_class2.auto_barcode_intersection_sort(file_path_in, n, start)
     my_class2.auto_intersection_count_sort(file_path_in, n, start)
-
     my_class2.mv_file(file_compare, n)
     my_class2.combine_file(file_path_in, n, start)
     my_class2.sort_useful_info(file_path_in, c)
@@ -324,7 +340,6 @@ def front_info_run(file_path, file_path_in, n, start, c, file_compare):
     my_class2.get_dir_barcode_set(file_path_in, n, start)
     my_class2.auto_barcode_intersection(file_path_in, n, start)
     my_class2.auto_intersection_count(file_path_in, n, start)
-
     my_class2.all_count_of_contig_each(file_path_in, n, start)
     my_class2.barcode_total_number(file_path_in, n, start)
     my_class2.get_sorensen_dice(file_path_in, n, start)
@@ -341,7 +356,6 @@ def back_info_run(file_path, file_path_in, n, start, c, file_compare):
     my_class3.barcode_bwa_set_few(file_path_in, n, start)
     my_class3.auto_barcode_intersection_sort(file_path_in, n, start)
     my_class3.auto_intersection_count_sort(file_path_in, n, start)
-
     my_class3.mv_file(file_compare, n)
     my_class3.combine_file(file_path_in, n, start)
     my_class3.sort_useful_info(file_path_in, c)
@@ -349,7 +363,6 @@ def back_info_run(file_path, file_path_in, n, start, c, file_compare):
     my_class3.get_dir_barcode_set(file_path_in, n, start)
     my_class3.auto_barcode_intersection(file_path_in, n, start)
     my_class3.auto_intersection_count(file_path_in, n, start)
-
     my_class3.all_count_of_contig_each(file_path_in, n, start)
     my_class3.barcode_total_number(file_path_in, n, start)
     my_class3.get_sorensen_dice(file_path_in, n, start)
@@ -418,9 +431,7 @@ def get_label_list(file_path, start):
     my_class7.get_label(file_path)
 def get_blast(args):
     #process = subprocess.Popen(['sh', shell_script_path])  # 如果shell_script_path是可执行的，可以直接使用它
-
     # 等待shell脚本执行完成
-
     process = subprocess.Popen(
         'sh ./scripts/generateBlastResult.sh ' + args.workingSpace + "/spades_result_unique_new/assembly.fasta "
         + args.workingSpace + "/spades_result_unique_new/get_different_contig "
@@ -432,13 +443,15 @@ def get_blast(args):
     print('get_blast finish')
 
 def get_plasmids(args):
+    
     subprocess.run(
-        'filter_sequences_by_length.pl -input ' + args.workingSpace + "/spades_result_unique_new/input_dataset.fasta -output " +
-        args.workingSpace + "/spades_result_unique_new/filtered_output.fasta -thresh  1000"
+        './pkgs/PlasFlow/filter_sequences_by_length.pl -input ' + args.workingSpace + "/spades_result_unique_new/scaffolds.fasta -output " +
+        args.workingSpace + "/spades_result_unique_new/filter_scaffolds.fasta -thresh 1000"
         , shell=True)
     subprocess.run(
-        "PlasFlow.py --input " + args.workingSpace + "/spades_result_unique_new/Citrobacter_freundii_strain_CAV1321_scaffolds.fasta --output " + args.workingSpace + "/spades_result_unique_new/plasflow_predictions.tsv --threshold 0.7"
+        "./pkgs/PlasFlow/PlasFlow.py --input " + args.workingSpace + "/spades_result_unique_new/filter_scaffolds.fasta --output " + args.workingSpace + "/spades_result_unique_new/plasflow_prediction.tsv --threshold 0.7"
         , shell=True)
+    
     data_in = open(args.workingSpace +"/spades_result_unique_new/plasflow_prediction.tsv_plasmids.fasta" , "r").readlines()
     data_out = open(args.workingSpace +"/spades_result_unique_new/prediction_plasmid_plasflow.txt", "w")
     for line in data_in:
@@ -447,23 +460,30 @@ def get_plasmids(args):
     data_out.close()
 if __name__ == '__main__':
     # 解析参数
-    args=processArgs()
+    args=processArgs()   
+    '''
     # 去重
     unique_reads(args.workingSpace+'/', args.i1, args.r1,args.r2)
     # 过滤
     filt(args)
     #质量评估
     qualityAssessment(args.workingSpace+'/')
+    
+    
     #spades
     spadesRun(args)
     #整理spades得到初步组装的结果
     rename_assembly(args.workingSpace+'/')
+    '''
     #解析contig边界
     n=0
     n=readN(args.workingSpace,args.lengthThreshold)
     if(n==-1):
         print("解析n出错")
         sys.exit()
+    else:
+        print('n='+str(n))
+    
     #BWA比对并分别获取每个contig对应的比对信息，去除低质量的contigs：
     bwaAndSeparate(args,n)
     #确定contigs之间的配对信息和方向信息：
@@ -481,17 +501,9 @@ if __name__ == '__main__':
     bf_run(args.workingSpace+'/spades_result_unique_new/fb_and_bf_list/', n, args.start, args.c1)
     #得到label_list(jaccard).txt：
     get_label_list(args.workingSpace+'/spades_result_unique_new/', args.start)
+    
     #得到延申需要的blast结果：  # todo 并行
     get_blast(args)
-
+    
     #拼接、延伸、生成序列图及信息
     generateSeries(args)
-
-
-
-
-
-
-
-
-

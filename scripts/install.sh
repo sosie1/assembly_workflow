@@ -10,10 +10,15 @@ then
     conda install -c bioconda bwa -y
     conda install -c bioconda samtools -y
 
-    conda install -c jjhelmus tensorflow=0.10.0rc0 -y
-    conda install -c smaegol plasflow -y
+    #conda install -c jjhelmus tensorflow=0.10.0rc0 -y
+    #conda install -c smaegol plasflow -y
 
-    conda install -c bioconda blast
+    #git clone https://github.com/smaegol/PlasFlow
+    #pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.10.0rc0-cp35-cp35m-linux_x86_64.whl
+    pip install numpy pandas scipy rpy2 scikit-learn biopython
+    #conda install -c bioconda perl-bioperl perl-getopt-long
+
+    #conda install -c bioconda blast
 # 安装python包
 pip3 install svglib
 pip3 install svgwrite

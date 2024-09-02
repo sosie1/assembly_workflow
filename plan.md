@@ -84,7 +84,10 @@ extendTailOrHead(contig,coincidenceThreshold,next_long_contig,connectedlists,nLi
         return
 '''
 
+100n-》1n
 
+
+todo: 大大直连最最后承接 进入有n之前操作
 
 
 
