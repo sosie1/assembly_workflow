@@ -1257,14 +1257,26 @@ class Path:
     @staticmethod
     def getLongestPath(lists):
         maxLength=0
+        maxNumber=0
+        maxS=-10000.0
         res=None
+        for path in lists:
+            if path.length>maxLength:
+                maxLength=path.length
+            number = len(path.list)
+            if number > maxNumber:
+                maxNumber=number
         for path in lists:
             number=len(path.list)
             if (number == 0):
                 continue
-            s=(path.score/number*path.length)/number
-            if s>maxLength:
-                maxLength=s
+            #s=(path.score/number*path.length)/number
+            s=path.length/maxLength-0.1*number/maxNumber
+            # if s>maxLength:
+            #     maxLength=s
+            #     res=path
+            if s>maxS:
+                maxS=s
                 res=path
         return res
 
