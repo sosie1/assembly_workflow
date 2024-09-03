@@ -50,17 +50,17 @@ git clone https://TELLBASE.git
 
 ### How to use <a name=pipeline></a>
 
-The TellScaffolding requires three input files:
+The TELLBASE requires three input files:
 * Reads file in fastq format `*.fq` 
 * i1 、r1 、r2
 
-An example bash script on how to run the TellScaffolding :
+An example bash script on how to run the TELLBASE :
 ```
 cd ./SeriesAnalysis
 python ./main.py --workingSpace yourInputDirectory/ --i1 1326_Ill_R2.fastq --r1 1326_Ill_R1.fastq --r2 1326_Ill_R3.fastq  --num 10000 --c1 3 --c2 2 --outputSpace yourOutputDirectory/
 #input、output directory need to created in advance
 ```
-An example to run the TellScaffolding with plasmids :
+An example to run the TELLBASE with plasmids :
 ```
 cd ./SeriesAnalysis
 python ./main.py --workingSpace yourInputDirectory/ --i1 1326_Ill_R2.fastq --r1 1326_Ill_R1.fastq --r2 1326_Ill_R3.fastq  --num 10000 --c1 3 --c2 2 --outputSpace yourOutputDirectory/ --plasmids True
