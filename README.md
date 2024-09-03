@@ -40,9 +40,9 @@ Notice : only fastq format of reads and barcode sequences is acceptable.
 
 ### Installation <a name=install></a>
 
-To install TellScaffolding :
+To install TELLBASE :
 ```
-git clone https://TellScaffolding.git
+git clone https://TELLBASE.git
 ./scripts/install.sh 
 ```
 
