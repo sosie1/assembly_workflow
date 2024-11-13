@@ -314,7 +314,8 @@ class GraphicalProcessUtil:
         dwg = svgwrite.Drawing(outputSpace+'/test1.svg', profile='tiny')
         currentY = 50
         for headId in self.dataProcessUtil.headContigs:
-            currentX = 10
+            currentX = 22
+            dwg.add(dwg.circle(center=(10,currentY),r=10,fill='black'))
             contigHead = contigs[headId]
             contigX = None
             arrowLength = self.generateArrowLength(contigHead.length)
@@ -365,7 +366,7 @@ class GraphicalProcessUtil:
                 else:
                     break
                 cnt = cnt + 1
-            currentY+=100
+            currentY+=50
         #dwg = svgwrite.Drawing('ca_green.svg', profile='tiny')
         #dwg.add(dwg.add(dwg.rect(insert=(0, 0), size=("100%", "100%"), rx=None, ry=None, fill='green')))
 

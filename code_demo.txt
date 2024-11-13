@@ -1,0 +1,752 @@
+1、解压缩：
+gzip -d /bios-store5/lyt/fudan_test_4sample_20231019/HB013/input_R1.fastq.gz /bios-store5/lyt/fudan_test_4sample_20231019/HB013/input_R2.fastq.gz /bios-store5/lyt/fudan_test_4sample_20231019/HB013/input_I1.fastq.gz
+
+2、数据去重：//去重慢  合并后 序列相同 名称不同 随机去除10中9 最后再分成三个
+def unique_reads(path,i1,r1,r2):
+    I1_1=open(path+i1,"r").readlines()
+    R1_1=open(path+r1,"r").readlines()
+    R2_1=open(path+r2,"r").readlines()
+
+    output_integration = open(path + 'integration.fastq','w')
+    for i in range(len(R1_1)):
+        if i % 4 == 0:
+            index = R1_1[i]
+            output_integration.writelines(index)
+        elif i % 4 == 1:
+            line=R1_1[i][:-1]+R2_1[i][:-1]+I1_1[i]
+            output_integration.writelines(line)
+        elif i % 4 == 2:
+            signal = R1_1[i]
+            output_integration.writelines(signal)
+        else:
+            lines = R1_1[i][:-1]+R2_1[i][:-1]+I1_1[i]
+            output_integration.writelines(lines)
+    output_integration.close()
+
+    output_integration = open(path + 'integration.fastq','r').readlines()
+
+    import pandas as pd
+    unique=[]
+    for i in range(len(output_integration)):
+        if i % 4 == 1:
+            unique.append(output_integration[i])
+
+    index_list=[]
+    for i in range(len(output_integration)):
+        if i % 4 == 0:
+            index_list.append(output_integration[i])
+
+    score=[]
+    for i in range(len(output_integration)):
+        if i % 4 == 3:
+            score.append(output_integration[i])
+
+    unique_seq=pd.DataFrame(unique)
+    unique_seq=unique_seq.drop_duplicates()
+
+    import numpy as np
+    unique_seq_new=np.array(unique_seq)
+    l=unique_seq.index
+
+    unique_fastq=open(path + "unique_seq.fastq","w")
+    for i in l:
+        unique_fastq.writelines(index_list[i])
+        unique_fastq.writelines(unique[i])
+        unique_fastq.writelines("+"+"\n")
+        unique_fastq.writelines(score[i])
+    unique_fastq.close()
+
+    unique_fastq=open(path + "unique_seq.fastq","r").readlines()
+
+    unique_fa_R1=open(path + "unique_R1.fastq","w")
+    for i in range(len(unique_fastq)):
+        if i % 4 == 0 :
+            unique_fa_R1.writelines(unique_fastq[i])
+        elif i % 4 == 1:
+            seq_R1 = unique_fastq[i][0:150]
+            unique_fa_R1.writelines(seq_R1+"\n")
+        elif i % 4 == 2:
+            unique_fa_R1.writelines(unique_fastq[i])
+        else:
+            score_R1 = unique_fastq[i][0:150]
+            unique_fa_R1.writelines(score_R1+"\n")
+    unique_fa_R1.close()
+
+    unique_fa_R2=open(path + "unique_R2.fastq","w")
+    for i in range(len(unique_fastq)):
+        if i % 4 == 0 :
+            unique_fa_R2.writelines(unique_fastq[i])
+        elif i % 4 == 1:
+            seq_R2 = unique_fastq[i][150:300]
+            unique_fa_R2.writelines(seq_R2+"\n")
+        elif i % 4 == 2:
+            unique_fa_R2.writelines(unique_fastq[i])
+        else:
+            score_R2 = unique_fastq[i][150:300]
+            unique_fa_R2.writelines(score_R2+"\n")
+    unique_fa_R2.close()
+
+    unique_fa_I1=open(path + "unique_I1.fastq","w")
+    for i in range(len(unique_fastq)):
+        if i % 4 == 0 :
+            unique_fa_I1.writelines(unique_fastq[i])
+        elif i % 4 == 1:
+            seq_I1 = unique_fastq[i][300:318]
+            unique_fa_I1.writelines(seq_I1+"\n")
+        elif i % 4 == 2:
+            unique_fa_I1.writelines(unique_fastq[i])
+        else:
+            score_I1 = unique_fastq[i][300:318]
+            unique_fa_I1.writelines(score_I1+"\n")
+    unique_fa_I1.close()
+
+unique_reads("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/","HB013_1213_R2.fastq","HB013_1213_R1.fastq","HB013_1213_R3.fastq")
+
+3、数据过滤：
+import argparse
+class filter_data:
+    def __init__(self,out_path,file_r1,file_r2,file_i1,file_w):
+        self.out_path = out_path
+        self.file_r1  = file_r1
+        self.file_r2 = file_r2 
+        self.file_i1 = file_i1 
+        self.file_w = file_w
+        
+    #1、统计原始文件reads数目：
+    #2、统计barcode信息和index信息:
+    def summary_barcode(self,file_r1,file_w):
+        data = open(self.file_r1,"r").readlines()
+        print(len(data)//4)
+        file_write  = open(self.file_w,"w")
+        name_list=[]
+        for i in range(len(data)):
+            if data[i][0] == "@":
+                name_list.append(data[i+1][:-1])
+        from collections import Counter
+        number_dir = Counter(name_list)
+
+        number_sort = sorted(number_dir.items(),key = lambda x:x[1],reverse = True)
+        print('reads_with_barcode_all_Gs:'+str(number_sort[0][1]))
+        for i in range(len(number_sort)):
+            line = number_sort[i][0] + "\t" + str(number_sort[i][1]) + "\n"
+            file_write.writelines(line)
+        file_write.close()
+    
+        index = data[0].split()[1].split(":")[3][:-1]
+    
+        data = open(self.file_w,"r").readlines()
+        barcode_catagory_count = len(data)
+        unique_barcode = 0
+        more_than_three = 0
+        read_with_more_than_three = 0
+        all_reads = 0
+        for line in data:
+            name = line.split()[0]
+            count = int(line.split()[1])
+            all_reads += count
+            if count == 1:
+                unique_barcode += 1
+            elif count >= 3:
+                more_than_three += 1
+                read_with_more_than_three += count     
+        print("all_reads:"+str(all_reads))
+        print("unique_barcode:"+str(unique_barcode))
+        print("more_than_three:"+str(more_than_three))
+        print("read_with_more_than_three:"+str(read_with_more_than_three))
+        print("barcode_catagory_count:"+str(barcode_catagory_count))
+
+    #3、将通用的index1剔除，得到新的R1、R2和I1文件：
+    def re_get_reads(self,file_r1,file_r2,file_i1,out_path):
+        data_I1 = open(self.file_r1,"r").readlines()
+        data_R1 = open(self.file_r2,"r").readlines()
+        data_R2 = open(self.file_i1,"r").readlines()
+        I1 = open(self.out_path+"reget_I1.fastq","w")
+        R1 = open(self.out_path+"reget_R1.fastq","w")
+        R2 = open(self.out_path+"reget_R2.fastq","w")
+        for i in range(len(data_I1)):
+            if i % 4 == 0:
+                name = data_I1[i].split()[0]
+                I1.writelines(name+"\n"+ data_I1[i+1]+data_I1[i+2]+data_I1[i+3])
+                R1.writelines(name+"\n"+ data_R1[i+1]+data_R1[i+2]+data_R1[i+3])
+                R2.writelines(name+"\n"+ data_R2[i+1]+data_R2[i+2]+data_R2[i+3])
+        I1.close()
+        R1.close()
+        R2.close()
+
+    #4、将错误的barcode进行剔除：
+    def remove_wrong_barcode(self,out_path):
+        H = ['A','C','T']
+        Y = ['C','T']
+        R = ['A','G']
+        I1 = open(self.out_path+"reget_I1.fastq","r").readlines()
+        R1 = open(self.out_path+"reget_R1.fastq","r").readlines()
+        R2 = open(self.out_path+"reget_R2.fastq","r").readlines()
+        correct_index = []
+        i1 = open(self.out_path+"correct_I1.fastq","w")
+        r1 = open(self.out_path+"correct_R1.fastq","w")
+        r2 = open(self.out_path+"correct_R2.fastq","w")
+        one_mismatch_barcode_num = 0
+        for i in range(len(I1)):
+            if i % 4 == 1:
+                position_1 = I1[i][2]
+                position_2 = I1[i][5]
+                position_3 = I1[i][6]
+                position_4 = I1[i][11]
+                position_5 = I1[i][12]
+                position_6 = I1[i][15]
+                if position_1 in H and position_6 in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])
+                elif position_1 not in H and position_6 in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])                   
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 not in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])               
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 not in Y and position_3 in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])               
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 in Y and position_3 not in R and position_4 in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])               
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 in Y and position_3 in R and position_4 not in Y and position_5 in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])                
+                    one_mismatch_barcode_num += 1
+                elif position_1 in H and position_6 in H and position_2 in Y and position_3 in R and position_4 in Y and position_5 not in R:
+                    correct_index.append(i)
+                    i1.writelines(I1[i-1]+I1[i]+I1[i+1]+I1[i+2])
+                    r1.writelines(R1[i-1]+R1[i]+R1[i+1]+R1[i+2])
+                    r2.writelines(R2[i-1]+R2[i]+R2[i+1]+R2[i+2])
+                    one_mismatch_barcode_num += 1
+        i1.close()
+        r1.close()
+        r2.close()
+        print(one_mismatch_barcode_num)
+
+    def cut_adapter_and_fastp(self,out_path):
+        import subprocess
+        import os 
+        subprocess.run(['sh','/bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/cutadapt_fastp.sh',self.out_path]) 
+
+    def get_final_corrected_reads(self,out_path):
+        original_i1 = open(self.out_path+'reget_I1.fastq',"r").readlines()
+        cut_r1_in = open(self.out_path+"fastp_r1.fastq","r").readlines()
+        cut_r2_in = open(self.out_path+"fastp_r2.fastq","r").readlines()
+        i1_in = open(self.out_path+'correct_i1.fastq',"r").readlines()
+        print("error_barcode_num:"+str(len(original_i1)//4-len(i1_in)//4))
+        name_list_before = []
+        for line in i1_in:
+            if line[0] == "@":
+                name_list_before.append(line)
+        name_list_after = []
+        for line in cut_r1_in:
+            if line[0] == "@":
+                name_list_after.append(line)
+        cut_i1_out = open(self.out_path+"fastp_i1.fastq","w")        
+        
+        name_intersection_list = list(set(name_list_before) & set(name_list_after))
+        name_intersection_dir = {}
+        for i, k in enumerate(name_intersection_list):
+            name_intersection_dir[k] = i    
+    
+        for i in range(len(i1_in)):
+            if i % 4 ==0:
+                if i1_in[i] in name_intersection_dir:
+                    cut_i1_out.writelines(i1_in[i]+i1_in[i+1]+i1_in[i+2]+i1_in[i+3])    
+        cut_i1_out.close()
+    
+        print("final_reads_num:" + str(len(cut_r1_in)//4))
+    
+        data = open(out_I1,"r").readlines()
+        name_list = []
+        for i in range(len(data)):
+            if i % 4 ==1:
+                name_list.append(data[i])
+        set_name = set(name_list)
+        print("final_correct_barcode_number:"+str(len(set_name)))              
+
+    def add_index(self,out_path):
+        R1=open(self.out_path+"fastp_r1.fastq","r").readlines()
+        R2=open(self.out_path+"fastp_r2.fastq","r").readlines()
+        i1=open(self.out_path+"fastp_i1.fastq","r").readlines()
+
+        for i in range(len(R1)):
+            if i % 4 == 1:
+                R1[i-1]=R1[i-1][:-1]+":"+"index:"+i1[i]
+                R2[i-1]=R2[i-1][:-1]+":"+"index:"+i1[i]
+
+        R1_with_index=open(self.out_path+"R1_with_barcode_new.fastq","w")
+        for line in R1:
+            R1_with_index.writelines(line)
+        R1_with_index.close()
+
+        R2_with_index=open(self.out_path+"R2_with_barcode_new.fastq","w")
+        for line in R2:
+            R2_with_index.writelines(line)
+        R2_with_index.close()
+
+def main(out_path,file_r1,file_r2,file_i1,file_w):
+    my_class = filter_data(out_path,file_r1,file_r2,file_i1,file_w)
+    my_class.summary_barcode(file_r1,file_w)
+    my_class.re_get_reads(file_r1,file_r2,file_i1,out_path)
+    my_class.remove_wrong_barcode(out_path)
+    my_class.cut_adapter_and_fastp(out_path)
+    my_class.get_final_corrected_reads(out_path)
+    my_class.add_index(out_path)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--out_path',type=str)
+parser.add_argument('--file_r1', type=str)
+parser.add_argument('--file_r2', type=str)
+parser.add_argument('--file_i1', type=str)
+parser.add_argument('--file_w',type=str)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.out_path,args.file_r1,args.file_r2,args.file_i1,args.file_w)
+
+{
+#原始数据和过滤后的数据进行质量评估
+（5）利用fastqc生成原始数据的质量检测报告：
+fastqc -o /output_path/ ./output_re_I1_T500.fastq.gz -t 10
+fastqc -o /output_path/ ./output_re_R1_T500.fastq.gz -t 10
+fastqc -o /output_path/ ./output_re_R2_T500.fastq.gz -t 10
+（8）利用fastqc生成过滤后的R1、R2和I1的质量报告：
+fastqc -o /output_path/ ./fastp_i1.fastq -t 10
+fastqc -o /output_path/ ./fastp_i1.fastq -t 10
+fastqc -o /output_path/ ./fastp_i1.fastq -t 10
+}
+
+3、spades.sh：
+cd /bios-store1/home/yutongli/SPAdes-3.14.0-Linux/bin/
+./spades.py -1 /bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/fastp_r1.fastq -2 /bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/fastp_r2.fastq -o /bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/spades_result_unique_new/
+ 
+4、整理spades得到初步组装的结果：
+def rename_assembly(path):
+    data = open(path + "spades_result_unique_new/scaffolds.fasta","r").readlines()
+    data_out = open(path + "spades_result_unique_new/assembly.fasta","w")
+    count = 1
+    for i in range(len(data)):
+        if data[i][0] == ">":
+            data_out.writelines(">"+str(count)+"\n")
+            count += 1
+        else:
+            data_out.writelines(data[i])
+    data_out.close()
+
+    import re, os
+    with open(path + "spades_result_unique_new/assembly.fasta") as f:
+        Dict = {}
+        for line in f:
+            line = line.strip()
+            if line[0] == ">":
+                key = line
+                Dict[key] = []
+            else:
+                Dict[key].append(line)
+            
+        with open(path + "spades_result_unique_new/output_with_depth_table.txt", 'w') as table:
+            with open(path + "spades_result_unique_new/outfile_genome.txt", 'w') as genome:
+                table.write("\tBase(bp)\tGC%\tStructure\n")
+                for key, value in Dict.items():
+                    if key[0] == ">":
+                        name = key[1:]
+                        seq = ''.join(value)   
+                        genome.write("{}\n{}\n".format(key, seq))
+                        # write table
+                        length = len(seq)
+                        gc_percent = format((seq.count("G") + seq.count("C"))/length*100, '0.2f')
+                        #print("\033[32m{}\t{}\033[0m".format(key, length))
+                        table.write("contig_{}\t{}\t{}\tChromosome\n".format(name,length, gc_percent))
+                        
+    data = open(path + "spades_result_unique_new/scaffolds.fasta","r").readlines()
+    data_out = open(path+"spades_result_unique_new/coverage.txt","w")
+    for line in data:
+        if line[0] == ">":
+            data_out.writelines(line)
+    data_out.close()
+
+rename_assembly("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/")
+
+解析长度信息
+
+5、BWA比对并分别获取每个contig对应的比对信息，去除低质量的contigs：
+import argparse
+class bwa_and_separate:
+    def __init__(self,out_path,n,low,high):
+        self.out_path = out_path
+        self.n  = n
+        self.low = low 
+        self.high = high 
+ 
+    def bwa_result(self,out_path):
+        import subprocess
+        import os 
+        subprocess.run(['sh','/bios-store5/lyt/fudan_test_4sample_20231019/HB013/tellread_result_try/bwa_and_separate.sh',self.out_path])
+
+    def separate_and_clear(self,out_path,n,low,high):
+        data_in = open(self.out_path +"spades_result_unique_new/coverage.txt","r").readlines()
+        data_out = open(self.out_path + "spades_result_unique_new/coverage_pair_info.txt","w")
+        for line in data_in:
+            name = line.split("_")[1]
+            cov = line.split("_")[5]
+            data_out.writelines(name+"\t"+cov)
+        data_out.close()
+
+        data = open(self.out_path + "spades_result_unique_new/full_final_unique_out.info.txt","r").readlines()
+        j = 1
+        while j < self.n:
+            data_out = open(self.out_path + "spades_result_unique_new/get_bam_info/final_out_"+str(j)+".info.txt","w")
+            for i in range(len(data)):
+                if int(data[i].split("\t")[2]) == j:
+                    data_out.writelines(data[i])
+            data_out.close()
+            j += 1
+
+        data = open(self.out_path + "coverage_pair_info.txt","r").readlines()
+        name_list = []
+        duplication_list = []
+        for i in range(len(data)):
+            name = data[i].split()[0]
+            cov = data[i].split()[1]
+            if float(cov) < float(self.low):
+                name_list.append(name)
+            elif float(cov) >= float(self.high):
+                duplication_list.append(name)
+
+        i = 1 
+        while i < self.n:
+            if str(i) in name_list:
+                bam_info = open(self.out_path + "spades_result_unique_new/get_bam_info/final_out_"+str(i)+".info.txt","w")
+                bam_info.writelines("")
+                bam_info.close()
+            i += 1  
+
+def main(out_path,n,low,high):
+    my_class = bwa_and_separate(out_path,n,low,high)
+    my_class.bwa_result(out_path)
+    my_class.separate_and_clear(out_path,n,low,high)
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--out_path',type=str)
+parser.add_argument('--n', type=int)
+parser.add_argument('--low', type=int)
+parser.add_argument('--high', type=int)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.out_path,args.n,args.low,args.high)
+
+6、确定contigs之间的配对信息和方向信息：
+需要利用的两个shell脚本信息：
+[
+#create_fill.sh
+path=$1
+mkdir ${path}/bwa_original_barcode_name_\(file_1\) ${path}/front_and_back_barcode_\(file_2\) ${path}/bwa_dir_of_int_\(file_3\) ${path}/int_set_remove_few_\(file_3\) ${path}/compare_before_\(file_4\) ${path}/remove_occur_once_\(file_5\) ${path}/final_int_barcode\(file_6\) ${path}/final_dir_barcode\(file_7\) ${path}/compara_file_final_int_\(file_8\) ${path}/compara_file_final_dir_\(file_9\) ${path}/union_file_final_int_\(file_10\) ${path}/ff_list ${path}/bb_list ${path}/fb_and_bf_list
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before_\(file_4\)/new_info_${i}
+  mkdir ${path}/compara_file_final_int_\(file_8\)/new_info_${i}
+  mkdir ${path}/compara_file_final_dir_\(file_9\)/new_info_${i}
+  mkdir ${path}/union_file_final_int_\(file_10\)/new_info_${i}
+done
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir ./compara_to_contig/
+  mv ${path}/new_info_${i}/int_set_of_contig_* ${path}/new_info_${i}/compara_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compara_to_contig/int_set_of_contig_${i}compare_to_contig_${i}.txt ${path}/new_info_${i}/
+Done
+]
+（1）得到整体contigs之间的相似度度量矩阵
+[
+#create_file.sh
+path=$1
+mkdir ${path}/front_barcode ${path}/bwa_dir_and_set ${path}/set_remove_few ${path}/compare_before ${path}/remove_occur_once ${path}/final_int_barcode ${path}/final_dir_barcode ${path}/compara_file_final_int ${path}/compara_file_final_dir ${path}/union_file_final_int
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before/new_info_${i}
+  mkdir ${path}/compara_file_final_int/new_info_${i}
+  mkdir ${path}/compara_file_final_dir/new_info_${i}
+  mkdir ${path}/union_file_final_int/new_info_${i}
+done
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir ./compara_to_contig/
+  mv ${path}/new_info_${i}/barcode_set_of_contig_* ${path}/new_info_${i}/compara_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compara_to_contig/barcode_set_of_contig_${i}compare_to_contig_${i}.txt ${path}/new_info_${i}/
+done
+]
+    
+（2）得到前端方向信息的相似度度量矩阵
+import argparse
+xxx
+
+[
+#create_file.sh
+path=$1
+mkdir ${path}/bwa_original_barcode_name ${path}/back_barcode ${path}/bwa_dir_and_set ${path}/set_remove_few ${path}/compare_before ${path}/remove_occur_once ${path}/final_int_barcode ${path}/final_dir_barcode ${path}/compara_file_final_int ${path}/compara_file_final_dir ${path}/union_file_final_int
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before/new_info_${i}
+  mkdir ${path}/compara_file_final_int/new_info_${i}
+  mkdir ${path}/compara_file_final_dir/new_info_${i}
+  mkdir ${path}/union_file_final_int/new_info_${i}
+done
+
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir ./compara_to_contig/
+  mv ${path}/new_info_${i}/barcode_set_of_contig_* ${path}/new_info_${i}/compara_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compara_to_contig/barcode_set_of_contig_${i}compare_to_contig_${i}.txt ${path}/new_info_${i}/
+done
+]
+（3）得到后端方向信息的相似度度量矩阵
+xxx
+
+（4）得到前端—后端方向信息的相似度度量矩阵和后端—前端方向信息的相似度度量矩阵
+[
+#create_file.sh
+path=$1
+mkdir ${path}/original_front_info ${path}/original_back_info ${path}/bwa_set_count_front ${path}/bwa_set_count_back ${path}/bwa_dir_of_int_front ${path}/bwa_dir_of_int_back ${path}/int_set_remove_few_front ${path}/int_set_remove_few_back ${path}/compare_before\(f-b\) ${path}/compare_before\(b-f\) ${path}/compare_after\(f-b\) ${path}/compare_after\(b-f\) ${path}/remove_occur_once\(f-b\) ${path}/final_int_barcode\(f-b\) ${path}/final_dir_barcode\(f-b\) ${path}/remove_occur_once\(b-f\) ${path}/final_int_barcode\(b-f\) ${path}/final_dir_barcode\(b-f\) ${path}/new_back_info_of_each ${path}/new_front_info_of_each ${path}/union_file_final_int\(f-b\) ${path}/union_file_final_int\(b-f\)
+for i in `seq 1 "$2"`;do
+  mkdir ${path}/compare_before\(f-b\)/new_info_${i}
+  mkdir ${path}/compare_before\(b-f\)/new_info_${i}
+  mkdir ${path}/compare_after\(f-b\)/new_info_${i}
+  mkdir ${path}/compare_after\(b-f\)/new_info_${i}
+  mkdir ${path}/union_file_final_int\(f-b\)/new_info_${i}
+  mkdir ${path}/union_file_final_int\(b-f\)/new_info_${i}
+done
+
+#mv_file.sh
+path=$1
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir compare_to_contig
+  mv ${path}/new_info_${i}/front_*compare_to_back_* ${path}/new_info_${i}/compare_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compare_to_contig/front_${i}compare_to_back_${i}.txt ${path}/new_info_${i}/
+done
+
+path=$3
+for i in `seq 1 "$2"`;do
+  cd ${path}/new_info_${i}/
+  mkdir compare_to_contig
+  mv ${path}/new_info_${i}/back_*compare_to_front_* ${path}/new_info_${i}/compare_to_contig/
+done
+
+for i in `seq 1 "$2"`;do
+  mv ${path}/new_info_${i}/compare_to_contig/back_${i}compare_to_front_${i}.txt ${path}/new_info_${i}/
+done
+]
+
+import argparse
+xxx
+
+
+import argparse f_b
+
+
+import argparse b_f
+
+
+（5）得到label_list(jaccard).txt：
+import argparse
+class Feature_extract:
+    def __init__(self,file_path,start):
+        self.file_path = file_path
+        self.start = start 
+
+    def get_pair_info(self,file_path,start):
+        import pandas as pd
+        total_num_read_pd=pd.read_csv(self.file_path + "Sorensen_Dice_rate_matrix_more.csv",index_col= 0)
+        import numpy as np
+        total_num_read_np = np.array(total_num_read_pd)
+        
+        max_rate=[]
+        for i in range(len(total_num_read_np)):
+            total_sort=total_num_read_pd.iloc[i].sort_values(na_position='first')
+            number_1=total_sort[-2]
+            index_ge=total_sort[total_sort.values==number_1].index
+            max_rate.append(("contig"+str(i+self.start)+"\t"+str(index_ge[0]),number_1))
+            number_2=total_sort[-3]
+            index_ge_2 = total_sort[total_sort.values==number_2].index
+            max_rate.append(("contig"+str(i+self.start)+"\t"+str(index_ge_2[0]),number_2))                       
+    
+        output_max=open(self.file_path + "max_contig_of_Sorensen_Dice.txt","w")
+        for x, y in max_rate:
+            data=x+"\t"+str(y)+"\n"
+            output_max.writelines(data)
+        output_max.close()
+
+        input_max=open(self.file_path + "max_contig_of_Sorensen_Dice.txt","r").readlines()
+        out = open(self.file_path + "max_contig_of_Sorensen_Dice_new.txt","w")
+        for i in range(len(input_max)):
+            if float(input_max[i].split("\t")[2][:-1]) != 0.0:
+                out.writelines(input_max[i])
+        out.close()      
+    
+    def feature_extract(self,file_path):
+        import pandas as pd
+        data_in = open(self.file_path + "max_contig_of_Sorensen_Dice_new.txt","r").readlines()    
+        pd_5 = pd.read_csv(self.file_path + "fb_and_bf_list/manually_get_jaccard_matrix(b-f).csv",index_col = 0)
+        pd_6 = pd.read_csv(self.file_path + "bb_list/manually_get_jaccard_matrix(b-b).csv",index_col =0)
+        pd_7 = pd.read_csv(self.file_path + "ff_list/manually_get_jaccard_matrix(f-f).csv",index_col = 0)
+        pd_8 = pd.read_csv(self.file_path + "fb_and_bf_list/manually_get_jaccard_matrix(f-b).csv",index_col =0)
+
+        data_out = open(self.file_path + "label_with_orientation_only_jaccard.txt","w")
+
+        i = 0
+        while i < len(data_in):
+            label_1 = data_in[i].split("\t")[0]
+            label_2 = data_in[i].split("\t")[1]
+            
+            value_1 = str(float(pd_5.loc[label_1,label_2]))
+            value_2 = str(float(pd_6.loc[label_1,label_2]))
+            value_3 = str(float(pd_7.loc[label_1,label_2]))
+            value_4 = str(float(pd_8.loc[label_1,label_2]))
+            data_out.writelines(data_in[i].split("\n")[0]+"\t"+value_1+"\t"+value_2+"\t"+value_3+"\t"+value_4+"\n")
+            i += 1
+        data_out.close()
+        
+    def get_label(self,file_path):
+        data = open(self.file_path + "label_with_orientation_only_jaccard.txt","r").readlines() 
+        data_out = open(self.file_path + "label_list(jaccard).txt","w")
+        import pandas as pd
+        for line in data:
+            score = line.split()[2]
+            list_i = line.split()[3:]
+            label = list_i.index(max(list_i))
+            data_out.writelines(line.split("\t")[0]+"_"+line.split("\t")[1]+"\t"+score+"\t"+str(label)+"\n")
+        data_out.close()
+
+
+def main(file_path,start):
+    my_class = Feature_extract(file_path,start)
+    my_class.get_pair_info(file_path,start)
+    my_class.feature_extract(file_path)
+    my_class.get_label(file_path)
+
+
+parser = argparse.ArgumentParser(description='Parameters') 
+parser.add_argument('--file_path', type=str)
+parser.add_argument("--start",type=int)
+
+args = parser.parse_args() 
+    
+if __name__ == '__main__':
+    main(args.file_path,args.start)
+
+（6）得到延申需要的blast结果：#todo 并行
+#获取结果
+ref_full="/bios-store5/lyt/D1_L31/D1/spades_result_unique/assembly.fasta"
+mkdir /bios-store5/lyt/D1_L31/D1/spades_result_unique_new/get_different_contig/
+path="/bios-store5/lyt/D1_L31/D1/spades_result_unique_new/get_different_contig"
+mkdir /bios-store5/lyt/D1_L31/D1/blast_connection/
+path_1='/bios-store5/lyt/D1_L31/D1/blast_connection'
+cd /bios-store5/lyt/D1_L31/D1/blast_connection/
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read line      
+do
+   echo ${line}
+   samtools faidx ${ref_full} ${line} > ${path}/assembly_${line}.fasta 
+   mkdir blast_${line}
+   makeblastdb -in ${path}/assembly_${line}.fasta -dbtype nucl -parse_seqids -out ${path}/contig_${line}_index
+done
+
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read a
+do
+    cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read b
+    do
+        blastn -query ${path}/assembly_${b}.fasta -db ${path}/contig_${a}_index -outfmt 6 -evalue 1e-6 -num_threads 6 -out ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt -word_size 7
+    done
+done
+
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read a
+do 
+    cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read b
+    do
+        if [[ -f ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt && -s ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt ]];then
+          echo "the file is not none"
+        else
+          rm -f ${path_1}/blast_${a}/blastoutfile_${b}_to_${a}.txt
+        fi
+    done
+done
+
+mkdir /bios-store5/lyt/D1_L31/D1/blast_connection/blast_all_info/
+cat /bios-store5/lyt/D1_L31/D1/efficient_id.txt | while read line      
+do
+   echo ${line}
+   cat ${path_1}/blast_${line}/*.txt > ${path_1}/blast_all_info/all_${line}.txt
+done
+
+{
+#过滤结果（可以省略）
+i = 1
+while i <= 56:
+    data = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_info/all_"+str(i)+".txt","r").readlines()
+    data_out = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_filter_info/all_"+str(i)+".txt","w")
+    for line in data:
+        if float(line.split("\t")[2])>= 95.00:
+            data_out.writelines(line)
+    data_out.close()
+    i += 1
+
+name_list = [57,58,61,62,65,67,68,70,71,72,77,79,82,85,87,92,93,97,98,99,101,103,104,107,110,124,134,136,138,146,148,153,162,170,171,190,194,201,202,248,275 276,423,431,441,570,586,621,642,732,752,952,998]
+for i in name_list:
+    data = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_info/all_"+str(i)+".txt","r").readlines()
+    data_out = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_filter_info/all_"+str(i)+".txt","w")
+    for line in data:
+        if float(line.split("\t")[2])>= 95.00:
+            data_out.writelines(line)
+    data_out.close()
+
+
+i = 1020
+while i <= 1183:
+    data = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_info/all_"+str(i)+".txt","r").readlines()
+    data_out = open("/bios-store5/lyt/fudan_test_4sample_20231019/HB013/blast_connection/blast_all_filter_info/all_"+str(i)+".txt","w")
+    for line in data:
+        if float(line.split("\t")[2])>= 95.00:
+            data_out.writelines(line)
+    data_out.close()
+    i += 1
+   
+}
+（7）获得plasmids：
+Plasflow软件
+filter_sequences_by_length.pl -input input_dataset.fasta -output filtered_output.fasta -thresh sequence_length_threshold 1000
+
+PlasFlow.py --input Citrobacter_freundii_strain_CAV1321_scaffolds.fasta --output plasflow_predictions.tsv --threshold 0.7

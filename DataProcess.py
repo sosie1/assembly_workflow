@@ -1,7 +1,7 @@
 import os
 import sys
+import subprocess
 class DataProcessUtil:
-
     def __init__(self,path):
         self.path=path
         self.headContigs = {}
@@ -18,9 +18,13 @@ class DataProcessUtil:
         self.contigPreBps = {}
         self.contigNextBps = {}
         self.seriesLength={}
+        self.repeatLongContigs=[]
+        self.ignoreContigs=[]
+
+        #self.plasmids_plasmids=[]
     def readPlasmids(self):
-        if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
-            with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
+        if os.path.exists(self.path+'/spades_result_unique_new/prediction_plasmid_plasflow.txt'):
+            with open(self.path+'/spades_result_unique_new/prediction_plasmid_plasflow.txt', 'r') as file:
                 # 按行读取文件内容
                 lines = file.readlines()
                 for line in lines:
@@ -28,9 +32,23 @@ class DataProcessUtil:
                     if index != -1:
                         nums=line.split('_')
                         self.plasmids.append(int(nums[1]))
-                        print(nums[1])
                     else:
                         self.plasmids.append(int(line.split(' ')[0].replace('>','')))
+
+    # def readPlasmids_plasmids(self):
+    #     if os.path.exists(self.path+'/prediction_plasmid_plasflow.txt'):
+    #         with open(self.path+'/prediction_plasmid_plasflow.txt', 'r') as file:
+    #             # 按行读取文件内容
+    #             lines = file.readlines()
+    #             for line in lines:
+    #                 index = line.find('_')
+    #                 if index != -1:
+    #                     nums=line.split('_')
+    #                     self.plasmids_plasmids.append(int(nums[1]))
+    #                     print(nums[1])
+    #                 else:
+    #                     self.plasmids_plasmids.append(int(line.split(' ')[0].replace('>','')))
+
 
 
     def printSeries(self,id1,id2):
@@ -39,7 +57,6 @@ class DataProcessUtil:
         print('------')
         #print(self.tinyContigs[id2].series[2873-1:2949])
         print(self.reverseSeries(self.tinyContigs[id2].series[0:2949]))
-
     def  reverseSeries(self,series):
         temp = ''
 
@@ -54,10 +71,48 @@ class DataProcessUtil:
                 temp = temp + 'C'
         temp = ''.join(reversed(temp))
         return temp
+    def readDepthTable_Plasmid(self,length_threshold):
+        self.generateFilter()
+        if os.path.exists(self.path + '/spades_result_unique_new/output_with_depth_table.txt'):
+            with open(self.path + '/spades_result_unique_new/output_with_depth_table.txt', 'r') as file:
+                # 按行读取文件内容
+                lines = file.readlines()
+                lines.pop(0)
+                # 打印每一行的内容
+                for line in lines:
+                    nums = line.split('\t')
+                    length = int(nums[1])
+                    idStr = nums[0].split('_')[1]
+                    if (int(idStr) not in self.lv):
+                        self.contigPreBps[idStr] = {}
+                        self.contigNextBps[idStr] = {}
+                        if length >= length_threshold and int(idStr) in self.plasmids:
+                            # print(idStr)
+                            if (idStr.replace(" ", "") in self.filter):
+                                self.contigs[idStr] = Contig(idStr, length)
+                            # print(self.contigs)
+
+                        elif length < length_threshold :
+                            # if (int(idStr) in self.plasmids):
+                            #     continue
+                            self.tinyContigs[idStr] = Contig(idStr, length)
+                        if (length > self.maxContigLength):
+                            self.maxContigLength = length
+                        if (length < self.minContigLength):
+                            self.minContigLength = length
+    def readRepeat(self,space):
+        print("读取可重复长序列信息")
+        print(space + '/duplicated_long_contigs_name.txt')
+        if os.path.exists(space + '/duplicated_long_contigs_name.txt'):
+            with open(space + '/duplicated_long_contigs_name.txt', 'r') as file:
+                lines=file.readlines()
+                for line in lines:
+                    self.repeatLongContigs.append(int(line))
+        print("读取可重复长序列信息over")
     def readDepthTable(self,length_threshold):
         self.generateFilter()
-        if os.path.exists(self.path+'/output_with_depth_table.txt'):
-            with open(self.path+'/output_with_depth_table.txt', 'r') as file:
+        if os.path.exists(self.path+'/spades_result_unique_new/output_with_depth_table.txt'):
+            with open(self.path+'/spades_result_unique_new/output_with_depth_table.txt', 'r') as file:
                 # 按行读取文件内容
                 lines = file.readlines()
                 lines.pop(0)
@@ -73,11 +128,17 @@ class DataProcessUtil:
                             #print(idStr)
                             if(idStr.replace(" ","") in self.filter):
                                 self.contigs[idStr]=Contig(idStr,length)
+                            if(int(idStr) in self.repeatLongContigs):
+                                print("添加重复序列:"+idStr)
+                                #if length < 10000:
+                                    #self.ignoreContigs.append(int(idStr))
+                                #else:
+                                self.tinyContigs[idStr] = Contig(idStr, length)
                             #print(self.contigs)
 
                         else:
-                            if (int(idStr) in self.plasmids):
-                                continue
+                            # if (int(idStr) in self.plasmids):
+                            #     continue
                             self.tinyContigs[idStr] = Contig(idStr, length)
                         if (length > self.maxContigLength):
                             self.maxContigLength = length
@@ -157,7 +218,7 @@ class DataProcessUtil:
             del contigPrePairs[directionPairNums[0]]
             del contigNextPairs[directionPairNums[1]]
     def generateFilter(self):
-        with open(self.path+'/label_list(jaccard).txt', 'r') as file:
+        with open(self.path+'/spades_result_unique_new/label_list(jaccard).txt', 'r') as file:
             # 按行读取文件内容
             lines = file.readlines()
             for line in lines:
@@ -166,61 +227,109 @@ class DataProcessUtil:
                 directionPairNums = directionPair.split('_')
                 self.filter.add(directionPairNums[0])
                 self.filter.add(directionPairNums[1])
+    #10 3 10 5
+    def isTwoContigPairConflict(self,directionPairNums,directionPairNums1,direction,direction1):
+        if(direction=='0' or direction=='1'):
+            if(direction1=='1' or direction1=='0'):
+                return True
+        if (direction == '2' or direction == '3'):
+            if (direction1 == '2' or direction1 == '3'):
+                return True
+        return False
 
-    def readDirection(self):
+
+    def readDirection(self,isPlasmids):
         pairs={}
         pairsScore={}
         contigNextPairs={}
         contigPrePairs = {}
 
         # 打开文件
-        with open(self.path+'/label_list(jaccard).txt', 'r') as file:
+        with open(self.path+'/spades_result_unique_new/label_list(jaccard).txt', 'r') as file:
             # 按行读取文件内容
             lines = file.readlines()
             # 打印每一行的内容
-            for line in lines:
+            index=0
+            while index <len(lines):
+                line = lines[index]
                 #print(contigNextPairs)
                 nums=line.split('\t')
                 directionPair=nums[0].replace('contig','')
                 directionPairNums = directionPair.split('_')
+                if(int(directionPairNums[0]) in self.ignoreContigs or
+                int(directionPairNums[1]) in self.ignoreContigs):
+                    index+=1
+                    continue
                 direction=nums[2].replace('\n','')
                 score=float(nums[1])
-                if(self.isContigDirectionConflict(pairs,directionPair,direction)):
-                    print('匹配对本身conflict')
-                    if(int(directionPairNums[0])>int(directionPairNums[1])):
-                        pair=directionPairNums[1]+'_'+directionPairNums[0]
-                        self.deletePairInformation(pairs, pairsScore, pair, contigNextPairs,
-                                                   contigPrePairs)
-                        pairs[directionPair] = direction
-                        pairsScore[directionPair] = score
-                        self.generateContigNextOrPrePairs(directionPair,contigNextPairs,contigPrePairs,direction)
-                else:
-                    CompetePaira,CompetePairb=self.isContigDirectionCompeteConflict(pairs, directionPair, contigNextPairs,contigPrePairs,direction)
-                    if(CompetePaira!=None or CompetePairb!=None):
-                        isAdd=True
-                        if(CompetePaira!=None and score<=pairsScore[CompetePaira]) :
-                            print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePaira)
-                            isAdd=False
-                        if (CompetePairb != None and score <= pairsScore[CompetePairb]):
-                            print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePairb)
-                            isAdd = False
-                        if (CompetePaira != None and score > pairsScore[CompetePaira] and isAdd==True):
-                            self.deletePairInformation(pairs, pairsScore, CompetePaira, contigNextPairs,
+                if(directionPairNums[0] in self.contigs and directionPairNums[1] in self.contigs):
+                    if(self.isContigDirectionConflict(pairs,directionPair,direction)):
+                        print('匹配对本身conflict')
+                        if(directionPairNums[0] in contigNextPairs and directionPairNums[0] in contigPrePairs
+                        and directionPairNums[1] in contigNextPairs and directionPairNums[1] in contigPrePairs):
+                            print("优化匹配")
+                            if(int(directionPairNums[0])>int(directionPairNums[1])):
+                                if(index+1<len(lines)):
+                                    line1=lines[index+1]
+                                    nums1 = line1.split('\t')
+                                    directionPair1 = nums1[0].replace('contig', '')
+                                    directionPairNums1 = directionPair1.split('_')
+                                    direction1 = nums1[2].replace('\n', '')
+                                    score1 = float(nums1[1])
+                                    if(directionPairNums1[0] ==directionPairNums[0]):
+                                        if(self.isTwoContigPairConflict(directionPairNums,directionPairNums1,direction,direction1)==False):
+                                            pair = directionPairNums[1] + '_' + directionPairNums[0]
+                                            self.deletePairInformation(pairs, pairsScore, pair, contigNextPairs,
+                                                                       contigPrePairs)
+                                            pairs[directionPair] = direction
+                                            pairsScore[directionPair] = score
+                                            self.generateContigNextOrPrePairs(directionPair, contigNextPairs,
+                                                                              contigPrePairs, direction)
+
+                                            pair1 = directionPairNums1[1] + '_' + directionPairNums1[0]
+                                            self.deletePairInformation(pairs, pairsScore, pair1, contigNextPairs,
+                                                                       contigPrePairs)
+                                            pairs[directionPair1] = direction1
+                                            pairsScore[directionPair1] = score1
+                                            self.generateContigNextOrPrePairs(directionPair1, contigNextPairs,
+                                                                              contigPrePairs, direction1)
+                                            index=index+1
+                                            print("优化匹配top")
+                        elif(int(directionPairNums[0])>int(directionPairNums[1])):
+                            pair=directionPairNums[1]+'_'+directionPairNums[0]
+                            self.deletePairInformation(pairs, pairsScore, pair, contigNextPairs,
                                                        contigPrePairs)
-                        if (CompetePairb != None and score > pairsScore[CompetePairb] and isAdd==True):
-                            self.deletePairInformation(pairs, pairsScore, CompetePairb, contigNextPairs,
-                                                       contigPrePairs)
-                        if(isAdd==True):
+                            pairs[directionPair] = direction
+                            pairsScore[directionPair] = score
+                            self.generateContigNextOrPrePairs(directionPair,contigNextPairs,contigPrePairs,direction)
+                    else:
+                        CompetePaira,CompetePairb=self.isContigDirectionCompeteConflict(pairs, directionPair, contigNextPairs,contigPrePairs,direction)
+                        if(CompetePaira!=None or CompetePairb!=None):
+                            isAdd=True
+                            if(CompetePaira!=None and score<=pairsScore[CompetePaira]) :
+                                print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePaira)
+                                isAdd=False
+                            if (CompetePairb != None and score <= pairsScore[CompetePairb]):
+                                print('匹配竞争conflict' + '___' + directionPair + 'vs' + CompetePairb)
+                                isAdd = False
+                            if (CompetePaira != None and score > pairsScore[CompetePaira] and isAdd==True):
+                                self.deletePairInformation(pairs, pairsScore, CompetePaira, contigNextPairs,
+                                                           contigPrePairs)
+                            if (CompetePairb != None and score > pairsScore[CompetePairb] and isAdd==True):
+                                self.deletePairInformation(pairs, pairsScore, CompetePairb, contigNextPairs,
+                                                           contigPrePairs)
+                            if(isAdd==True):
+                                pairs[directionPair] = direction
+                                pairsScore[directionPair] = score
+                                self.generateContigNextOrPrePairs(directionPair, contigNextPairs, contigPrePairs, direction)
+                        else:
                             pairs[directionPair] = direction
                             pairsScore[directionPair] = score
                             self.generateContigNextOrPrePairs(directionPair, contigNextPairs, contigPrePairs, direction)
-                    else:
-                        pairs[directionPair] = direction
-                        pairsScore[directionPair] = score
-                        self.generateContigNextOrPrePairs(directionPair, contigNextPairs, contigPrePairs, direction)
+                index=index+1
         for key1, value in pairs.items():
             key=key1.split('_')
-            print(key)
+            #print(key)
             if key[0] in self.contigs and key[1] in self.contigs:
                 if value == '0':
                     self.contigs[key[0]].next = self.contigs[key[1]]
@@ -240,6 +349,8 @@ class DataProcessUtil:
                     # self.contigs[directionPair[1]].direction = 1
                     self.contigs[key[0]].pre = self.contigs[key[1]]
                     self.contigs[key[1]].next = self.contigs[key[0]]
+        if(isPlasmids==True):
+            self.plasmids.clear()
         self.deletePlasmidsContigs()
     def isContigConnected(self,contig,contig1):
         if(contig1==None):
@@ -270,7 +381,9 @@ class DataProcessUtil:
                     lastDirection = 1
                 contigHead.using = True
                 contigPre = contigHead
+
                 while contigX != None and contigX != contigHead:
+                    #print("de"+contigX.i)
                     if contigX.pre != None and contigX.pre == contigPre:
                         contigX.using = True
                         if (int(contigX.i) in self.plasmids):
@@ -283,7 +396,7 @@ class DataProcessUtil:
                             contigPre = contigX
                             contigX = contigX.next
                             lastDirection = 0
-                    elif contigX.pre != None and contigX.next == contigPre:
+                    elif contigX.next != None and contigX.next == contigPre:
                         contigX.using = True
                         if (int(contigX.i) in self.plasmids):
 
@@ -300,6 +413,10 @@ class DataProcessUtil:
                         contigX.using = True
                         break
                     else:
+                        if (lastDirection == 0):
+                            contigPre.next=None
+                        else:
+                            contigPre.pre=None
                         break
         for c in self.contigs:
             if self.contigs[c].using==False:
@@ -314,6 +431,7 @@ class DataProcessUtil:
                 contigHead.using = True
                 contigPre = contigHead
                 while contigX != None and contigX != contigHead:
+                   # print("de1" + contigX.i)
                     if contigX.pre != None and contigX.pre == contigPre:
                         contigX.using = True
                         if (int(contigX.i) in self.plasmids):
@@ -344,10 +462,35 @@ class DataProcessUtil:
         for c in self.contigs:
             self.contigs[c].using=False
         for i in self.plasmids:
-            if(str(i) in self.contigs):
-                del self.contigs[str(i)]
             if(str(i) in self.headContigs):
+                #print(str(i))
+                contigP=None
+                if(self.headContigs[str(i)]==0):
+                    contigP=self.contigs[str(i)].next
+                else:
+                    contigP =self.contigs[str(i)].pre
+                if(contigP!=None):
+                    if(contigP.pre!=None and contigP.pre==self.contigs[str(i)]):
+                        self.headContigs[contigP.i]=0
+                        contigP.pre=None
+                    else:
+                        self.headContigs[contigP.i] = 1
+                        contigP.next = None
                 del self.headContigs[str(i)]
+            if (str(i) in self.contigs):
+                del self.contigs[str(i)]
+        for i in self.repeatLongContigs:
+            if(str(i)) in self.headContigs:
+                if self.contigs[str(i)].next==None and self.contigs[str(i)].pre==None:
+                    del self.headContigs[str(i)]
+        # toRemove = {}
+        # for i in self.headContigs:
+        #     if (self.contigs[i].length < 8000 and self.contigs[i].next == None and self.contigs[i].pre == None):
+        #         toRemove[i] = 0
+        # for i in toRemove:
+        #     del self.headContigs[i]
+
+
         # contigHead = self.contigs['1']
         # contigX = contigHead.next
         # contigPre = contigHead
@@ -379,20 +522,20 @@ class DataProcessUtil:
 
     def readGenome(self):
         # 打开文件
-        with open(self.path+'/outfile_genome.txt', 'r') as file:
+        with open(self.path+'/spades_result_unique_new/outfile_genome.txt', 'r') as file:
             # 按行读取文件内容
             lines = file.readlines()
             preLine=''
             for line in lines:
                 if line.__contains__('>'):
                     preLine=line.replace('>','').replace('\n','')
-                elif preLine in self.contigs:
+                if preLine in self.contigs:
                     self.contigs[preLine].series=line.replace('\n','')
-                elif preLine in self.tinyContigs:
+                if preLine in self.tinyContigs:
                     self.tinyContigs[preLine].series=line.replace('\n','')
     def writeN(self,file,cnt,c,indexx,id):
         temp=''
-        temp+=str(id)
+        #temp+=str(id)
         for i in range(cnt):
             temp+=c
         if len(temp)<60-indexx:
@@ -440,7 +583,7 @@ class DataProcessUtil:
                                 isNewN=False
                             else:
                                 cnt+=endIndex-index+1
-                                if(cnt==100):
+                                if(cnt==1):
                                     isNewN=True
                                     self.endFiles[fileId][i]=x
                                     i=i+1
@@ -496,7 +639,7 @@ class DataProcessUtil:
                 while contigX != contigHead and contigX!=None:
                     if contigX.pre != None and contigX.pre == contigPre:
                         if (isConnected == False):
-                            index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
+                            index = self.writeN(file, 1, 'N', index, tinyBreakCnt)
                             tinyBreakCnt += 1
                             index = self.showleftTinySeries(contigX, index, file, 0,duanId)
                         index = self.writeSeries(file, contigX.tinyPre, contigX, 0, index,duanId)
@@ -509,7 +652,7 @@ class DataProcessUtil:
                         index, isConnected = self.showTinySeries(contigPre, contigX, index, file, 0,duanId)
                     elif contigX.pre != None and contigX.next == contigPre:
                         if (isConnected == False):
-                            index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
+                            index = self.writeN(file, 1, 'N', index, tinyBreakCnt)
                             tinyBreakCnt += 1
                             index = self.showleftTinySeries(contigX, index, file, 1,duanId)
 
@@ -519,7 +662,7 @@ class DataProcessUtil:
                         index, isConnected = self.showTinySeries(contigPre, contigX, index, file, 1,duanId)
                     elif contigX.pre == None and contigX.next == contigPre:
                         if (isConnected == False):
-                            index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
+                            index = self.writeN(file, 1, 'N', index, tinyBreakCnt)
                             tinyBreakCnt += 1
                             index = self.showleftTinySeries(contigX, index, file, 1,duanId)
                         index = self.writeSeries(file, contigX.tinyNext, contigX, 1, index,duanId)
@@ -531,7 +674,7 @@ class DataProcessUtil:
                         isBreak = True
                         break
                 if (isBreak == False and isConnected == False):
-                    index = self.writeN(file, 100, 'N', index, tinyBreakCnt)
+                    index = self.writeN(file, 1, 'N', index, tinyBreakCnt)
                     tinyBreakCnt += 1
                     if(contigX!=None):
                         index = self.showleftTinySeries(contigX, index, file, 0,duanId)
@@ -818,11 +961,8 @@ class DataProcessUtil:
 
 
 
-
-
-
     #深度优先遍历寻找最长序列
-    def extendSeries(self,coincidenceThreshold):
+    def extendSeries(self,coincidenceThreshold,coincidenceThreshold_1):
         for contigId in self.contigs:
             contig=self.contigs[contigId]
             nextContig=contig.next
@@ -831,70 +971,40 @@ class DataProcessUtil:
                 tinyList = []
                 nList=[]
                 path=Path()
-                self.extendTail(contigId,coincidenceThreshold,nextContig,tinyList,nList,path)
-                # if (contigId == '38'):
-                #     for a in tinyList:
-                #         print(a.list)
-                #     print('----')
-                #     for a in nList:
-                #         print(a.list)
+                self.extendTail(contigId,coincidenceThreshold,nextContig,tinyList,nList,path,coincidenceThreshold_1,True)
                 path=Path.getLongestPath(tinyList)
-
                 if path==None:
-                    path = Path.getLongestPath(nList)
+                    path = Path.getLongestPathMultiplePriorities(nList)
                     if path!=None:
                         self.realExtendSeries(contig, path, 0, nextContig, True)
                 else:
                     self.realExtendSeries(contig, path, 0, nextContig, False)
-                print(contigId+'tail')
-                if(contig.tinyNext!=None):
-                    print('is'+contig.tinyNext.i)
-
-
-
             if contig.tinyPre==None:
                 tinyList = []
                 nList = []
                 path = Path()
-
-
-                self.extendHead(contigId,coincidenceThreshold,preContig,tinyList,nList,path)
-                if (contigId == '12'):
-                    for a in tinyList:
-                        print(a.list)
-                    print('----')
-                    for a in nList:
-                        print(a.list)
-
+                self.extendHead(contigId,coincidenceThreshold,preContig,tinyList,nList,path,coincidenceThreshold_1,True)
                 path = Path.getLongestPath(tinyList)
-
                 if path == None:
-                    path = Path.getLongestPath(nList)
+                    path = Path.getLongestPathMultiplePriorities(nList)
                     if path != None:
                         self.realExtendSeries(contig, path, 1, preContig, True)
                 else:
                     self.realExtendSeries(contig, path, 1, preContig, False)
-                print(contigId + 'head')
-                if (contig.tinyPre != None):
-                    print('is' + contig.tinyPre.i)
-
-    def extendTail(self,id,coincidenceThreshold,bigContig,lists,nLists,path):
-        #print(path.list)
-        #print('-'+id+'-')
+                #print(contigId + 'head')
+                #if (contig.tinyPre != None):
+                    #print('is' + contig.tinyPre.i)
+    def extendTail(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,isLongContig):
         contig=None
         isTiny = False
-        if id in self.contigs:
-            contig=self.contigs[id]
-        elif id in self.tinyContigs:
+        if (isLongContig):
+            contig = self.contigs[id]
+        else:
             isTiny = True
-            contig=self.tinyContigs[id]
+            contig = self.tinyContigs[id]
         length = contig.length
-        #maxId = '-1'
-        #maxBps = 0
-        maxerCoincidence = 0
-        #direction = 0  # 同向
-        if os.path.exists(self.path+'/blast_all_info/all_'+id+'.txt'):
-            with open(self.path+'/blast_all_info/all_'+id+'.txt', 'r') as file:
+        if os.path.exists(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt'):
+            with open(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt', 'r') as file:
                 lines = file.readlines()
                 if(bigContig!=None):
                     for line in lines:
@@ -903,7 +1013,7 @@ class DataProcessUtil:
                         coincidenceEquality=float(nums[2])
                         if nums[0] == bigContig.i \
                         and bps>=32\
-                        and float(nums[2])>coincidenceThreshold and nums[0]!=id:
+                        and float(nums[2])>coincidenceThreshold_1 and nums[0]!=id  and isLongContig==False:
                             tinyLength = self.contigs[nums[0]].length
                             if (nums[6] in ['1','2','3','4','5'] and nums[9] in [str(length),str(length-1),str(length-2) \
                                     ,str(length-3),str(length-4)]):
@@ -912,7 +1022,6 @@ class DataProcessUtil:
                                 self.contigNextBps[id][nums[0]] = bps
                                 appendPath = path.deepCopy()
                                 lists.append(appendPath)
-
                                 return
                             elif (nums[7] in [str(tinyLength),str(tinyLength-1),str(tinyLength-2) \
                                     ,str(tinyLength-3),str(tinyLength-4)] and
@@ -937,35 +1046,22 @@ class DataProcessUtil:
                         if nums[6] in ['1','2','3','4','5'] and nums[9]in [str(length),str(length-1),str(length-2) \
                                 ,str(length-3),str(length-4)] and path.isThreeRepeat(nums[0])==False:
                             isN=False
-                            #if coincidenceEquality>maxerCoincidence or (coincidenceEquality==maxerCoincidence and bps>maxBps):
-                            #if bps>maxBps or (bps==maxBps and float(nums[2])>maxerCoincidence):
-                                #maxBps=bps
-                                #maxId=nums[0]
-                                #maxerCoincidence=float(nums[2])
-                                #direction=0
                             self.contigPreBps[nums[0]][id] = bps
                             self.contigNextBps[id][nums[0]]=bps
                             path.list.append(nums[0])
                             path.directions.append(1)
                             path.length+=tinyLength
-
-                            self.extendTail(nums[0], coincidenceThreshold,bigContig,lists,nLists,path)
-
+                            path.score+=float(nums[2])
+                            self.extendTail(nums[0], coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,False)
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
+                            path.score -= float(nums[2])
                         # -><-
                         if nums[7] in [str(tinyLength),str(tinyLength-1),str(tinyLength-2) \
                                 ,str(tinyLength-3),str(tinyLength-4)] and \
                               nums[8] in [str(length),str(length-1),str(length-2) \
                                 ,str(length-3),str(length-4)] and path.isThreeRepeat(nums[0])==False:
-                            # if coincidenceEquality > maxerCoincidence or (
-                            #         coincidenceEquality == maxerCoincidence and bps > maxBps):
-                            #if bps>maxBps or (bps==maxBps and float(nums[2])>maxerCoincidence):
-                                # maxBps=bps
-                                # maxId=nums[0]
-                                # maxerCoincidence=float(nums[2])
-                                # direction=1
                             isN=False
                             self.contigNextBps[nums[0]][id] = bps
                             self.contigNextBps[id][nums[0]] = bps
@@ -973,57 +1069,24 @@ class DataProcessUtil:
                             path.list.append(nums[0])
                             path.directions.append(0)
                             path.length += tinyLength
-
-                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists,nLists, path)
+                            path.score += float(nums[2])
+                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists,nLists, path,coincidenceThreshold_1,False)
 
                             path.list.pop()
                             path.directions.pop()
                             path.length-=tinyLength
+                            path.score -= float(nums[2])
                 if isN==True:
                     appendPath = path.deepCopy()
                     nLists.append(appendPath)
-
-        # if maxId!='-1':
-        #
-        #     if direction==0:
-        #         if (isTiny and self.tinyContigs[maxId].tinyPre==None):
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #             self.tinyContigs[maxId].tinyPre = contig
-        #             self.tinyContigs[maxId].preCoincidence[id] = maxBps
-        #             if self.tinyContigs[maxId].tinyNext==None:
-        #                 self.extendTail(maxId,coincidenceThreshold)
-        #         elif isTiny==False:
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #             self.tinyContigs[maxId].tiny_bigPre.append(contig)
-        #             self.tinyContigs[maxId].preCoincidence[id]= maxBps
-        #             if self.tinyContigs[maxId].tinyNext == None:
-        #                 self.extendTail(maxId, coincidenceThreshold)
-        #     elif direction==1:
-        #         if isTiny and self.tinyContigs[maxId].tinyNext == None:
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #             self.tinyContigs[maxId].tinyNext = contig
-        #             self.tinyContigs[maxId].nextCoincidence[id] = maxBps
-        #             if self.tinyContigs[maxId].tinyPre == None:
-        #                 self.extendHead(maxId, coincidenceThreshold)
-        #         elif isTiny == False:
-        #             contig.tinyNext = self.tinyContigs[maxId]
-        #
-        #             self.tinyContigs[maxId].tiny_bigNext.append(contig)
-        #             # if (maxId == '1'):
-        #             #     print('add' + contig.i)
-        #             self.tinyContigs[maxId].nextCoincidence[id] = maxBps
-        #             # if id == '38' and maxId == '58':
-        #             #     for a in self.tinyContigs[maxId].tiny_bigNext:
-        #             #         print(a.i)
-        #             if self.tinyContigs[maxId].tinyPre == None:
-        #                 self.extendHead(maxId, coincidenceThreshold)
-    def extendHead(self,id,coincidenceThreshold,bigContig,lists,nLists,path):
+    def extendHead(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,isLongContig):
         #print(path.list)
+
         contig=None
         isTiny=False
-        if id in self.contigs:
-            contig=self.contigs[id]
-        elif id in self.tinyContigs:
+        if(isLongContig):
+            contig = self.contigs[id]
+        else:
             isTiny=True
             contig=self.tinyContigs[id]
         length = contig.length
@@ -1031,8 +1094,8 @@ class DataProcessUtil:
         #maxBps = 0
         #maxerCoincidence = 0
         #direction = 0  # 同向
-        if os.path.exists(self.path + '/blast_all_info/all_' + id + '.txt'):
-            with open(self.path+'/blast_all_info/all_'+id+'.txt', 'r') as file:
+        if os.path.exists(self.path + '/blast_connection/blast_all_info/all_' + id + '.txt'):
+            with open(self.path+'/blast_connection/blast_all_info/all_'+id+'.txt', 'r') as file:
                 lines = file.readlines()
                 if(bigContig!=None):
                     for line in lines:
@@ -1041,7 +1104,7 @@ class DataProcessUtil:
                         coincidenceEquality=float(nums[2])
                         if nums[0] == bigContig.i \
                         and bps>=32\
-                        and coincidenceEquality>coincidenceThreshold and nums[0]!=id:
+                        and coincidenceEquality>coincidenceThreshold_1 and nums[0]!=id and isLongContig==False :
                             tinyLength = self.contigs[nums[0]].length
                             if (nums[7] in [str(tinyLength),str(tinyLength-1),str(tinyLength-2) \
                                     ,str(tinyLength-3),str(tinyLength-4)] and nums[8] in ['1','2','3','4','5']) :
@@ -1083,11 +1146,12 @@ class DataProcessUtil:
                             path.list.append(nums[0])
                             path.directions.append(0)
                             path.length += tinyLength
-
-                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists, nLists, path)
+                            path.score += coincidenceEquality
+                            self.extendHead(nums[0], coincidenceThreshold, bigContig, lists, nLists, path,coincidenceThreshold_1,False)
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
+                            path.score -= coincidenceEquality
                         if nums[6] in ['1','2','3','4','5'] and nums[9] in ['1','2','3','4','5'] and path.isThreeRepeat(nums[0])==False:
                             # if coincidenceEquality > maxerCoincidence or (
                             #         coincidenceEquality == maxerCoincidence and bps > maxBps):
@@ -1104,11 +1168,12 @@ class DataProcessUtil:
                             path.list.append(nums[0])
                             path.directions.append(1)
                             path.length += tinyLength
-
-                            self.extendTail(nums[0], coincidenceThreshold, bigContig, lists, nLists, path)
+                            path.score += coincidenceEquality
+                            self.extendTail(nums[0], coincidenceThreshold, bigContig, lists, nLists, path,coincidenceThreshold_1,False)
                             path.list.pop()
                             path.directions.pop()
                             path.length -= tinyLength
+                            path.score -= coincidenceEquality
                 if isN==True:
                     appendPath = path.deepCopy()
                     nLists.append(appendPath)
@@ -1148,6 +1213,7 @@ class Path:
         self.list=[] #tiny序列
         self.directions=[]# 0 next连接上一个 1 pre连接上一个
         self.length=0
+        self.score=0
 
 
 
@@ -1156,6 +1222,7 @@ class Path:
         appendPath.list = [item for item in self.list]
         appendPath.directions = [item for item in self.directions]
         appendPath.length = self.length
+        appendPath.score=self.score
         return appendPath
     def isThreeRepeat(self,str):#两段序列重复
         cnt=0
@@ -1175,11 +1242,54 @@ class Path:
     @staticmethod
     def getLongestPath(lists):
         maxLength=0
+        maxNumber=0
+        maxS=-10000.0
         res=None
         for path in lists:
             if path.length>maxLength:
                 maxLength=path.length
+            number = len(path.list)
+            if number > maxNumber:
+                maxNumber=number
+        for path in lists:
+            number=len(path.list)
+            if (number == 0):
+                continue
+            #s=(path.score/number*path.length)/number
+            s=path.length/maxLength-0.1*number/maxNumber
+            # if s>maxLength:
+            #     maxLength=s
+            #     res=path
+            if s>maxS:
+                maxS=s
                 res=path
+        return res
+
+    @staticmethod
+    def getLongestPathMultiplePriorities(lists):
+        maxLength = 0
+        maxnumber = sys.maxsize
+        maxscore=0
+        res = None
+        for path in lists:
+            number = len(path.list)
+            if (number == 0):
+                continue
+            score=path.score/number
+            isBetter=False
+            if path.length > maxLength:
+                isBetter=True
+            elif path.length == maxLength:
+                if(number<maxnumber):
+                    isBetter=True
+                elif number==maxnumber:
+                    if(score>maxscore):
+                        isBetter=True
+            if isBetter==True:
+                maxLength = path.length
+                maxnumber = number
+                maxscore = score
+                res = path
         return res
 
 class EndContig:
