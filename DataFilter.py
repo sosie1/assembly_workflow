@@ -4,6 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import math
 
+
 class bwa_and_separate:
     def __init__(self, out_path, n):
         self.out_path = out_path
@@ -11,8 +12,8 @@ class bwa_and_separate:
 
     def bwa_result(self):
         subprocess.run(
-            'sh ./scripts/bwa_and_separate.sh '+self.out_path
-             ,shell=True)
+            'sh ./scripts/bwa_and_separate.sh ' + self.out_path
+            , shell=True)
 
     def separate_and_clear(self, n):
         import matplotlib
@@ -35,56 +36,62 @@ class bwa_and_separate:
         cov_list = []
         for i in range(0, 10):
             cov_list.append(float(data[index].split("\t")[1][:-1]))
-        #add_new_content
+        # add_new_content
         x = []
         y = []
         for line in data:
             x.append(int(line.split("\t")[0]))
-            y.append(float(line.split("\t")[1][:-1])+1)
+            y.append(float(line.split("\t")[1][:-1]) + 0.00000001)
 
         logy = np.log10(y)
         avg = np.mean(logy)
         std = np.std(logy)
-        print(avg,std)
+        print(avg, std)
         dirn = {}
         for i in range(len(x)):
-            dirn[x[i]]=logy[i]
+            dirn[x[i]] = logy[i]
 
         sns.kdeplot(logy)
         plt.savefig(self.out_path + 'spades_result_unique_new/cov_new.png')
         from sklearn.mixture import GaussianMixture
-        gmm = GaussianMixture(n_components=2) 
-        gmm.fit(logy.reshape(-1, 1)) 
-        means = gmm.means_ 
-        standard_deviations = gmm.covariances_**0.5 
-        weights = gmm.weights_ 
-        #print(f"Means: {means}, Standard Deviations: {standard_deviations},Weights:{weights}") 
-        means=list(np.concatenate(means.reshape((-1,1),order="F")))
-        standard_deviations=list(np.concatenate(standard_deviations.reshape((-1,1),order="F")))
-        dir_gauss={}
+        gmm = GaussianMixture(n_components=2)
+        gmm.fit(logy.reshape(-1, 1))
+        means = gmm.means_
+        standard_deviations = gmm.covariances_ ** 0.5
+        weights = gmm.weights_
+        # print(f"Means: {means}, Standard Deviations: {standard_deviations},Weights:{weights}")
+        means = list(np.concatenate(means.reshape((-1, 1), order="F")))
+        standard_deviations = list(np.concatenate(standard_deviations.reshape((-1, 1), order="F")))
+        dir_gauss = {}
         for i in range(2):
-            dir_gauss[i]=[means[i]-1,standard_deviations[i]]
-        #print(dir_gauss)
-        '''
-        if dir_gauss[0][0]> dir_gauss[1][0] and dir_gauss[0][1]<0.5 and math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])< math.pow(10,dir_gauss[0][0]):
-            low = math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])
-            high = math.pow(10,dir_gauss[0][0])
-        elif dir_gauss[0][0]<dir_gauss[1][0] and dir_gauss[1][1]<0.5 and math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])< math.pow(10,dir_gauss[0][0]):
-            low = math.pow(10,dir_gauss[0][0]+5*dir_gauss[0][1])
-            high = math.pow(10,dir_gauss[1][0])
-        elif math.pow(10,dir_gauss[1][0]+5*dir_gauss[1][1])>= math.pow(10,dir_gauss[0][0]): 
-            low = cov_whole//30
-            high = cov_whole*3//20
-        elif dir_gauss[0][0]> dir_gauss[1][0] and dir_gauss[0][1]>0.5:
-            low = cov_whole//30
-            high = cov_whole*3//20
-        elif dir_gauss[0][0]<dir_gauss[1][0] and dir_gauss[1][1]>0.5:
-            low = cov_whole//30
-            high = cov_whole*3//20
-        '''
-        low = cov_whole//20
-        high = cov_whole*3//20
-        
+            dir_gauss[i] = [means[i] - 1, standard_deviations[i]]
+        # print(dir_gauss)
+
+        length = open(self.out_path + "spades_result_unique_new/output_with_depth_table.txt", "r").readlines()
+        length_list = []
+        sum_length = 0
+        for i in range(1, 11):
+            length_list.append(int(length[i].split("\t")[1]))
+            sum_length += int(length[i].split("\t")[1])
+        min_length = min(length_list)
+        jiaquan_mean = 0
+        for i in range(len(logy)):
+            jiaquan_mean += logy[i] * length_list[i] / sum_length
+
+        jiaquan_mean_new = 0
+        for i in range(len(length_list)):
+            jiaquan_mean_new += length_list[i] * ((logy[i] - jiaquan_mean) ** 2)
+
+        import math
+        std0 = math.sqrt(jiaquan_mean_new / (sum_length * 9 / 10))
+        std1 = math.sqrt(min_length / int(args.lengthThreshold))
+
+        low = jiaquan_mean - std0 * 1.96 * std1
+        hight = jiaquan_mean + std0 * 1.96 * std1
+
+        # low = cov_whole//20
+        # high = cov_whole*3//20
+
         print("low_coverage_threshold:" + str(low), "high_coverage_threshold:" + str(high))
 
         name_list = []
@@ -122,8 +129,9 @@ class bwa_and_separate:
         for i in range(1, n):
             large_contig_name.append(length[i].split("\t")[0].split("_")[1])
         print(large_contig_name)
-            
-        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", "r").readlines()
+
+        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt",
+                             "r").readlines()
         plasmids_name = []
         for line in plasmids_data:
             plasmids_name.append(line.split("_")[1])
@@ -132,12 +140,12 @@ class bwa_and_separate:
         name_inter_final = list(set(name_interaction) - set(plasmids_name))
         print(name_interaction)
         print(name_inter_final)
-        
+
         large_contig_txt = open(self.out_path + "duplicated_long_contigs_name.txt", "w")
         for name in name_inter_final:
             large_contig_txt.writelines(name + "\n")
         large_contig_txt.close()
-        
+
         data = open(self.out_path + "spades_result_unique_new/full_final_unique_out.info.txt", "r").readlines()
         j = 1
         while j < n:
@@ -155,7 +163,7 @@ class bwa_and_separate:
                 data_out.writelines("")
                 data_out.close()
                 j += 1
-        
+
 
 class filter_data:
     def __init__(self, out_path, file_r1, file_r2, file_i1, file_w):
@@ -292,8 +300,8 @@ class filter_data:
     def cut_adapter_and_fastp(self, out_path):
 
         subprocess.run(
-            'sh ./scripts/cutadapt_fastp.sh '+
-             self.out_path,shell=True)
+            'sh ./scripts/cutadapt_fastp.sh ' +
+            self.out_path, shell=True)
 
     def get_final_corrected_reads(self, out_path):
         original_i1 = open(self.out_path + 'reget_I1.fastq', "r").readlines()
