@@ -32,7 +32,6 @@ class DataProcessUtil:
                     if index != -1:
                         nums=line.split('_')
                         self.plasmids.append(int(nums[1]))
-                        print(nums[1])
                     else:
                         self.plasmids.append(int(line.split(' ')[0].replace('>','')))
 
@@ -330,7 +329,7 @@ class DataProcessUtil:
                 index=index+1
         for key1, value in pairs.items():
             key=key1.split('_')
-            print(key)
+            #print(key)
             if key[0] in self.contigs and key[1] in self.contigs:
                 if value == '0':
                     self.contigs[key[0]].next = self.contigs[key[1]]
@@ -384,7 +383,7 @@ class DataProcessUtil:
                 contigPre = contigHead
 
                 while contigX != None and contigX != contigHead:
-                    print("de"+contigX.i)
+                    #print("de"+contigX.i)
                     if contigX.pre != None and contigX.pre == contigPre:
                         contigX.using = True
                         if (int(contigX.i) in self.plasmids):
@@ -432,7 +431,7 @@ class DataProcessUtil:
                 contigHead.using = True
                 contigPre = contigHead
                 while contigX != None and contigX != contigHead:
-                    print("de1" + contigX.i)
+                   # print("de1" + contigX.i)
                     if contigX.pre != None and contigX.pre == contigPre:
                         contigX.using = True
                         if (int(contigX.i) in self.plasmids):
@@ -464,7 +463,7 @@ class DataProcessUtil:
             self.contigs[c].using=False
         for i in self.plasmids:
             if(str(i) in self.headContigs):
-                print(str(i))
+                #print(str(i))
                 contigP=None
                 if(self.headContigs[str(i)]==0):
                     contigP=self.contigs[str(i)].next
@@ -985,11 +984,6 @@ class DataProcessUtil:
                 nList = []
                 path = Path()
                 self.extendHead(contigId,coincidenceThreshold,preContig,tinyList,nList,path,coincidenceThreshold_1,True)
-                if contigId == '23':
-                    print('-------23')
-                    for a in tinyList :
-                        for b in a.list:
-                            print(b)
                 path = Path.getLongestPath(tinyList)
                 if path == None:
                     path = Path.getLongestPathMultiplePriorities(nList)
@@ -997,9 +991,9 @@ class DataProcessUtil:
                         self.realExtendSeries(contig, path, 1, preContig, True)
                 else:
                     self.realExtendSeries(contig, path, 1, preContig, False)
-                print(contigId + 'head')
-                if (contig.tinyPre != None):
-                    print('is' + contig.tinyPre.i)
+                #print(contigId + 'head')
+                #if (contig.tinyPre != None):
+                    #print('is' + contig.tinyPre.i)
     def extendTail(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,isLongContig):
         contig=None
         isTiny = False
@@ -1087,8 +1081,7 @@ class DataProcessUtil:
                     nLists.append(appendPath)
     def extendHead(self,id,coincidenceThreshold,bigContig,lists,nLists,path,coincidenceThreshold_1,isLongContig):
         #print(path.list)
-        if id =='23':
-            print('yanshen'+id)
+
         contig=None
         isTiny=False
         if(isLongContig):
@@ -1116,18 +1109,12 @@ class DataProcessUtil:
                             if (nums[7] in [str(tinyLength),str(tinyLength-1),str(tinyLength-2) \
                                     ,str(tinyLength-3),str(tinyLength-4)] and nums[8] in ['1','2','3','4','5']) :
                                 #self.tinyContigs[nums[0]].nextCoincidence[id] = bps
-                                if id =='23':
-                                    print('yanshen1')
-                                    print('yan'+nums[0])
                                 self.contigNextBps[nums[0]][id] = bps
                                 self.contigPreBps[id][nums[0]] = bps
                                 appendPath=path.deepCopy()
                                 lists.append(appendPath)
                                 return
                             elif (nums[6] in ['1','2','3','4','5'] and nums[9] in ['1','2','3','4','5']):
-                                if id =='23':
-                                    print('yanshen2')
-                                    print('yan'+nums[0])
                                 #self.tinyContigs[nums[0]].preCoincidence[id] = bps
                                 self.contigPreBps[nums[0]][id] = bps
                                 self.contigPreBps[id][nums[0]] = bps
@@ -1152,8 +1139,6 @@ class DataProcessUtil:
                             #     maxId=nums[0]
                             #     maxerCoincidence=float(nums[2])
                             #     direction=0
-                            if id=='23':
-                                print('get'+nums[0])
                             isN = False
                             self.contigNextBps[nums[0]][id] = bps
                             self.contigPreBps[id][nums[0]] = bps

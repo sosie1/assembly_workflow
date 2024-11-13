@@ -2,6 +2,7 @@ import subprocess
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.mixture import GaussianMixture
 import math
 
 
@@ -15,7 +16,7 @@ class bwa_and_separate:
             'sh ./scripts/bwa_and_separate.sh ' + self.out_path
             , shell=True)
 
-    def separate_and_clear(self, n):
+    def separate_and_clear(self,args,n):
         import matplotlib
         matplotlib.use('Agg')
         data_in = open(self.out_path + "spades_result_unique_new/coverage.txt", "r").readlines()
@@ -53,7 +54,7 @@ class bwa_and_separate:
 
         sns.kdeplot(logy)
         plt.savefig(self.out_path + 'spades_result_unique_new/cov_new.png')
-        from sklearn.mixture import GaussianMixture
+
         gmm = GaussianMixture(n_components=2)
         gmm.fit(logy.reshape(-1, 1))
         means = gmm.means_
@@ -87,7 +88,7 @@ class bwa_and_separate:
         std1 = math.sqrt(min_length / int(args.lengthThreshold))
 
         low = jiaquan_mean - std0 * 1.96 * std1
-        hight = jiaquan_mean + std0 * 1.96 * std1
+        high = jiaquan_mean + std0 * 1.96 * std1
 
         # low = cov_whole//20
         # high = cov_whole*3//20
@@ -130,6 +131,21 @@ class bwa_and_separate:
             large_contig_name.append(length[i].split("\t")[0].split("_")[1])
         print(large_contig_name)
 
+        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt",
+                             "r").readlines()
+        data_out = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow_bak.txt", "w")
+        for line in plasmids_data:
+            lastD = line.split("_")[-1]
+            x = float(lastD)
+            if x>=low :
+                data_out.writelines(line)
+        data_in = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow_bak.txt",
+                             "r").readlines()
+        with open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", 'w') as file:
+            pass
+        data_out = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", "w")
+        for line in data_in:
+            data_out.writelines(line)
         plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt",
                              "r").readlines()
         plasmids_name = []

@@ -298,7 +298,7 @@ def bwaAndSeparate(args,n):
     my_class1 = bwa_and_separate(args.workingSpace, n)
     #my_class1.bwa_result()
     get_plasmids(args)
-    my_class1.separate_and_clear(n)
+    my_class1.separate_and_clear(args,n)
 def Barcode_info_run(path_bam, file_path, start, n, num, c, file_compare):
     my_class0 = Barcode_info(path_bam, file_path, start, n, num, c, file_compare)
     my_class0.create_file(file_path, n)
@@ -479,7 +479,7 @@ if __name__ == '__main__':
     n=0
     n=readN(args.workingSpace,args.lengthThreshold)
     if(n==-1):
-        print("解析n出错")
+        print("generate n error")
         sys.exit()
     else:
         print('n='+str(n))
