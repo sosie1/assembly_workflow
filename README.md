@@ -26,7 +26,7 @@ Notice : only fastq format of reads and barcode sequences is acceptable.
 * fastp  
 * fastqc 
 * bwa 
-* samtools 
+* samtools (1.11)
 * numpy
 * pandas
 * scipy
@@ -42,7 +42,7 @@ Notice : only fastq format of reads and barcode sequences is acceptable.
 
 To install TellScaffolding :
 ```
-git clone https://TellScaffolding.git
+git clone https://github.com/sosie1/assembly_workflow.git
 ./scripts/install.sh 
 ```
 
