@@ -43,15 +43,9 @@ class bwa_and_separate:
         for line in data:
             x.append(int(line.split("\t")[0]))
             y.append(float(line.split("\t")[1][:-1]) + 0.00000001)
-
-        logy = np.log10(y)
-        avg = np.mean(logy)
-        std = np.std(logy)
-        print(avg, std)
-        dirn = {}
-        for i in range(len(x)):
-            dirn[x[i]] = logy[i]
-
+        print(y[0:10])
+        logy = np.log10(y[0:10])
+        
         sns.kdeplot(logy)
         plt.savefig(self.out_path + 'spades_result_unique_new/cov_new.png')
 
@@ -89,26 +83,25 @@ class bwa_and_separate:
 
         low = jiaquan_mean - std0 * 1.96 * std1
         high = jiaquan_mean + std0 * 1.96 * std1
-
-        # low = cov_whole//20
-        # high = cov_whole*3//20
-
         print("low_coverage_threshold:" + str(low), "high_coverage_threshold:" + str(high))
-
+        
+        #auto_filter_contigs
         name_list = []
         duplication_list = []
         for i in range(len(data)):
-            name = data[i].split()[0]
-            cov = data[i].split()[1]
-            if float(low) < float(cov):
+            name = data[i].split("\t")[0]
+            cov = data[i].split("\t")[1][:-1]
+            if float(math.pow(10,low)) < float(cov):
                 name_list.append(name)
-
+        print(name_list)
+        
         for i in range(len(data)):
-            name = data[i].split()[0]
-            cov = data[i].split()[1]
-            if float(cov) >= float(high):
+            name = data[i].split("\t")[0]
+            cov = data[i].split("\t")[1][:-1]
+            if float(cov) >= float(math.pow(10,high)):
                 duplication_list.append(name)
-
+        print(duplication_list)
+        
         name_dir = {}
         for k, v in enumerate(name_list):
             name_dir[v] = k
@@ -125,37 +118,35 @@ class bwa_and_separate:
 
         length = open(self.out_path + "spades_result_unique_new/output_with_depth_table.txt", "r").readlines()
         # this step need file(prediction_plasmid_plasflow.txt)--so we need run plasflow
-        # new_code
         large_contig_name = []
         for i in range(1, n):
             large_contig_name.append(length[i].split("\t")[0].split("_")[1])
         print(large_contig_name)
 
-        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt",
-                             "r").readlines()
+        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt","r").readlines()
         data_out = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow_bak.txt", "w")
         for line in plasmids_data:
-            lastD = line.split("_")[-1]
+            lastD = line.split("_")[-1][:-1]
             x = float(lastD)
             if x>=low :
                 data_out.writelines(line)
-        data_in = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow_bak.txt",
-                             "r").readlines()
-        with open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", 'w') as file:
-            pass
+        data_in = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow_bak.txt","r").readlines()
+        #with open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", 'w') as file:
+            #pass
         data_out = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt", "w")
         for line in data_in:
             data_out.writelines(line)
-        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt",
-                             "r").readlines()
+        data_out.close()
+        
+        plasmids_data = open(self.out_path + "spades_result_unique_new/prediction_plasmid_plasflow.txt","r").readlines()
         plasmids_name = []
         for line in plasmids_data:
             plasmids_name.append(line.split("_")[1])
 
         name_interaction = list(set(duplication_list) & set(large_contig_name))
         name_inter_final = list(set(name_interaction) - set(plasmids_name))
-        print(name_interaction)
-        print(name_inter_final)
+        print("name_interaction:",name_interaction)
+        print("name_inter_final:",name_inter_final)
 
         large_contig_txt = open(self.out_path + "duplicated_long_contigs_name.txt", "w")
         for name in name_inter_final:
@@ -166,16 +157,14 @@ class bwa_and_separate:
         j = 1
         while j < n:
             if str(j) in name_dir:
-                data_out = open(
-                    self.out_path + "spades_result_unique_new/get_bam_info/final_out_" + str(j) + ".info.txt", "w")
+                data_out = open(self.out_path + "spades_result_unique_new/get_bam_info/final_out_" + str(j) + ".info.txt", "w")
                 for i in range(len(data)):
                     if int(data[i].split("\t")[2]) == j:
                         data_out.writelines(data[i])
                 data_out.close()
                 j += 1
             else:
-                data_out = open(
-                    self.out_path + "spades_result_unique_new/get_bam_info/final_out_" + str(j) + ".info.txt", "w")
+                data_out = open(self.out_path + "spades_result_unique_new/get_bam_info/final_out_" + str(j) + ".info.txt", "w")
                 data_out.writelines("")
                 data_out.close()
                 j += 1
