@@ -461,7 +461,6 @@ def get_plasmids(args):
 if __name__ == '__main__':
     # 解析参数
     args=processArgs()   
-    '''
     # 去重
     unique_reads(args.workingSpace+'/', args.i1, args.r1,args.r2)
     # 过滤
@@ -474,7 +473,7 @@ if __name__ == '__main__':
     spadesRun(args)
     #整理spades得到初步组装的结果
     rename_assembly(args.workingSpace+'/')
-    '''
+    
     #解析contig边界
     n=0
     n=readN(args.workingSpace,args.lengthThreshold)
