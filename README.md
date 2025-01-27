@@ -42,7 +42,7 @@ Notice : only fastq format of reads and barcode sequences is acceptable.
 
 To install TELLBASE :
 ```
-git clone https://github.com/sosie1/assembly_workflow.git
+git clone git@github.com:sosie1/assembly_workflow.git
 pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.10.0rc0-cp35-cp35m-linux_x86_64.whl
 pip install numpy pandas scipy rpy2 scikit-learn biopython
 conda install -c bioconda perl-bioperl perl-getopt-long
