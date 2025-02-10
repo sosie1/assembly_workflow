@@ -58,7 +58,7 @@ The TELLBASE requires three input files:
 
 An example bash script on how to run the TELLBASE :
 ```
-cd ./SeriesAnalysis
+cd ./assembly_workflow
 python ./main.py --workingSpace yourInputDirectory/ --i1 1326_Ill_R2.fastq --r1 1326_Ill_R1.fastq --r2 1326_Ill_R3.fastq  --num 10000 --c1 3 --c2 2 --outputSpace yourOutputDirectory/
 #input、output directory need to created in advance
 ```
